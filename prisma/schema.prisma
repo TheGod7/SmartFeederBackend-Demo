@@ -1,0 +1,215 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String         @id @default(uuid())
+  name         String
+  email        String         @unique
+  passwordHash String
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  pets         Pet[]
+  feeders      Feeder[]
+  refreshTokens RefreshToken[]
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  tokenHash String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Pet {
+  id         String   @id @default(uuid())
+  userId     String
+  name       String
+  species    String
+  breed      String?
+  weightGrams Int
+  birthDate  String?
+  avatarUrl  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  feeders    Feeder[]
+
+  @@index([userId])
+}
+
+model Feeder {
+  id           String     @id @default(uuid())
+  userId       String
+  name         String
+  deviceCode   String     @unique
+  petId        String?
+  timezone     String     @default("UTC")
+  isOnline     Boolean    @default(false)
+  lastSeenAt   DateTime?
+  createdAt    DateTime   @default(now())
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pet          Pet?       @relation(fields: [petId], references: [id], onDelete: SetNull)
+  schedules    Schedule[]
+  feedingEvents FeedingEvent[]
+  statuses     FeederStatus[]
+  alerts       Alert[]
+  foods        FeederFood[]
+  commands     DeviceCommand[]
+  telemetry    DeviceTelemetry[]
+  camera       Camera?
+
+  @@index([userId])
+}
+
+model Schedule {
+  id          String   @id @default(uuid())
+  feederId    String
+  time        String
+  grams       Int
+  enabled     Boolean  @default(true)
+  daysOfWeek String   @default("[0,1,2,3,4,5,6]")
+  timezone    String   @default("UTC")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  feeder      Feeder   @relation(fields: [feederId], references: [id], onDelete: Cascade)
+  feedingEvents FeedingEvent[]
+
+  @@index([feederId])
+}
+
+model FeedingEvent {
+  id              String   @id @default(uuid())
+  feederId        String
+  scheduleId      String?
+  scheduledAt     DateTime?
+  startedAt       DateTime?
+  dispensedAt     DateTime?
+  completedAt     DateTime?
+  dispensedGrams  Int?
+  consumedGrams   Int?
+  remainingGrams  Int?
+  status          String   @default("scheduled")
+  failureReason   String?
+  createdAt       DateTime @default(now())
+  feeder          Feeder   @relation(fields: [feederId], references: [id], onDelete: Cascade)
+  schedule        Schedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+
+  @@index([feederId, createdAt])
+  @@index([status])
+}
+
+model FeederStatus {
+  id                String   @id @default(uuid())
+  feederId          String
+  plateFoodGrams    Int      @default(0)
+  hopperFoodGrams   Int      @default(0)
+  hopperCapacityGrams Int    @default(2000)
+  lastDispensedGrams Int?
+  lastDispensedAt   DateTime?
+  isOnline          Boolean  @default(false)
+  lastSeenAt        DateTime?
+  firmwareVersion   String?
+  motorStatus       String   @default("ready")
+  sensorStatus      String   @default("not_calibrated")
+  createdAt         DateTime @default(now())
+  feeder            Feeder   @relation(fields: [feederId], references: [id], onDelete: Cascade)
+
+  @@index([feederId, createdAt])
+}
+
+model Alert {
+  id        String   @id @default(uuid())
+  feederId  String
+  type      String
+  title     String
+  detail    String
+  category  String
+  severity  String   @default("info")
+  read      Boolean  @default(false)
+  readAt    DateTime?
+  metadata  String?
+  createdAt DateTime @default(now())
+  feeder    Feeder   @relation(fields: [feederId], references: [id], onDelete: Cascade)
+
+  @@index([feederId, read, createdAt])
+}
+
+model Food {
+  id              String   @id @default(uuid())
+  brand           String
+  name            String
+  description     String?
+  species         String
+  proteinPercent  Float?
+  fatPercent      Float?
+  fiberPercent    Float?
+  moisturePercent Float?
+  energyKcalPerKg Int?
+  imageUrl        String?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  feeders         FeederFood[]
+}
+
+model FeederFood {
+  feederId  String
+  foodId    String
+  selectedAt DateTime @default(now())
+  feeder    Feeder @relation(fields: [feederId], references: [id], onDelete: Cascade)
+  food      Food   @relation(fields: [foodId], references: [id], onDelete: Cascade)
+
+  @@id([feederId, foodId])
+}
+
+model DeviceCommand {
+  id            String   @id @default(uuid())
+  feederId      String
+  type          String
+  payload       String?
+  status        String   @default("queued")
+  requestedGrams Int?
+  failureReason String?
+  createdAt     DateTime @default(now())
+  sentAt        DateTime?
+  completedAt   DateTime?
+  feeder        Feeder   @relation(fields: [feederId], references: [id], onDelete: Cascade)
+
+  @@index([feederId, status, createdAt])
+}
+
+model DeviceTelemetry {
+  id              String   @id @default(uuid())
+  feederId        String
+  reportedAt      DateTime
+  plateFoodGrams  Int?
+  hopperFoodGrams Int?
+  motorStatus     String?
+  sensorStatus    String?
+  wifiSignal      Int?
+  firmwareVersion String?
+  createdAt       DateTime @default(now())
+  feeder          Feeder   @relation(fields: [feederId], references: [id], onDelete: Cascade)
+
+  @@index([feederId, reportedAt])
+}
+
+model Camera {
+  id         String   @id @default(uuid())
+  feederId   String   @unique
+  available  Boolean  @default(false)
+  streamType String?
+  streamUrl  String?
+  expiresAt  DateTime?
+  updatedAt  DateTime @updatedAt
+  feeder     Feeder   @relation(fields: [feederId], references: [id], onDelete: Cascade)
+}
