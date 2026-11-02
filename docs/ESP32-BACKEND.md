@@ -1,4 +1,14 @@
-# Conexion del ESP32 con Smart Feeder Backend
+# Documentos de integración ESP32 y API
+
+La documentación detallada se separó en dos guías:
+
+- [README-ESP32.md](./README-ESP32.md): qué debe hacer el ESP32, cuándo enviar
+  datos, cómo interpretar respuestas, ejecutar comandos y recuperarse de
+  errores.
+- [README-API.md](./README-API.md): endpoints, tipos, cuerpos, respuestas,
+  validaciones y limitaciones reales del backend.
+
+Este archivo se conserva como referencia histórica del primer prototipo.
 
 Este documento describe la integracion minima para una demo funcional. El
 ESP32 se conecta por Wi-Fi y se comunica con la API mediante HTTP y JSON.

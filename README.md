@@ -29,6 +29,11 @@ con el frontend. Todos los recursos usan un usuario demo interno y los
 endpoints no requieren headers ni tokens. El código de JWT se conserva aislado
 en `src/auth/` para activarlo más adelante sin rediseñar los modelos.
 
+## Documentación de integración
+
+- [Guía para programar el ESP32](./docs/README-ESP32.md)
+- [Referencia completa de la API](./docs/README-API.md)
+
 ## Endpoints implementados
 
 ### Mascotas
