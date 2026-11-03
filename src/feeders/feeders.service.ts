@@ -63,7 +63,28 @@ export class FeedersService {
   async status(feederId: string) {
     const feeder = await this.findOne(feederId);
     const latest = await this.prisma.feederStatus.findFirst({ where: { feederId }, orderBy: { createdAt: 'desc' } });
-    return latest ?? { feederId, plateFoodGrams: 0, hopperFoodGrams: 0, hopperCapacityGrams: 2000, lastDispensedGrams: null, lastDispensedAt: null, isOnline: feeder.isOnline, lastSeenAt: feeder.lastSeenAt, motorStatus: 'ready', sensorStatus: 'not_calibrated' };
+    const lastDispensedEvent = await this.prisma.feedingEvent.findFirst({
+      where: { feederId, dispensedGrams: { not: null } },
+      orderBy: [{ dispensedAt: 'desc' }, { createdAt: 'desc' }],
+      select: { dispensedGrams: true, dispensedAt: true },
+    });
+    const base = latest ?? {
+      feederId,
+      plateFoodGrams: null,
+      hopperFoodGrams: null,
+      hopperCapacityGrams: null,
+      lastDispensedGrams: null,
+      lastDispensedAt: null,
+      isOnline: feeder.isOnline,
+      lastSeenAt: feeder.lastSeenAt,
+      motorStatus: 'ready',
+      sensorStatus: 'not_calibrated',
+    };
+    return {
+      ...base,
+      lastDispensedGrams: lastDispensedEvent?.dispensedGrams ?? base.lastDispensedGrams,
+      lastDispensedAt: lastDispensedEvent?.dispensedAt ?? base.lastDispensedAt,
+    };
   }
 
   async dashboard(feederId: string) {

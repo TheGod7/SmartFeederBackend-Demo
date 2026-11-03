@@ -221,6 +221,10 @@ El backend todavía no marca automáticamente offline al dispositivo. El
 frontend debe considerar offline un comedero cuyo `lastSeenAt` tenga más de 90
 segundos.
 
+Antes de la primera telemetría, el backend devuelve `null` para las cantidades
+del plato, depósito y capacidad. El ESP32 debe enviar esos valores cuando los
+conozca; no debe mandar `0` si el sensor no está disponible.
+
 ## 5. Comandos: cómo recibe instrucciones el ESP32
 
 El usuario solicita una dispensación desde:
@@ -458,4 +462,3 @@ báscula, sensores y extracción de JSON con ArduinoJson.
 Este flujo no verifica identidad real. Quien conozca `deviceCode` y
 `testCode` puede operar el comedero. Es apropiado para una demo en red local,
 no para Internet o producción.
-

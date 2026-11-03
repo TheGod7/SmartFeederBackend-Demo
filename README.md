@@ -104,6 +104,10 @@ etapa de vida, tipo de alimento, fuente nutricional e imagen representativa.
 La energía se guarda solo cuando está publicada para la fórmula concreta;
 cuando no hay un dato verificable se devuelve `null`, no `0`.
 
+La base inicial no contiene mascotas, comederos ni lecturas de prueba. Hasta
+que el ESP32 envíe su primera telemetría, las cantidades de plato y depósito
+se devuelven como `null` para representar “sin lectura”.
+
 ### Dispositivo
 
 ```text

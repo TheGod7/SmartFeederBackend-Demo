@@ -111,9 +111,9 @@ model FeedingEvent {
 model FeederStatus {
   id                String   @id @default(uuid())
   feederId          String
-  plateFoodGrams    Int      @default(0)
-  hopperFoodGrams   Int      @default(0)
-  hopperCapacityGrams Int    @default(2000)
+  plateFoodGrams    Int?
+  hopperFoodGrams   Int?
+  hopperCapacityGrams Int?
   lastDispensedGrams Int?
   lastDispensedAt   DateTime?
   isOnline          Boolean  @default(false)

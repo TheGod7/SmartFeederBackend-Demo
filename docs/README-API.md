@@ -228,16 +228,18 @@ Request:
 
 ### `GET /feeders/:feederId/status`
 
-Devuelve el último `FeederStatus`. Si todavía no hay telemetría, devuelve
+Devuelve el último `FeederStatus`. `lastDispensedGrams` y `lastDispensedAt`
+se completan con el último evento de alimentación que tenga gramos
+dispensados. Si todavía no hay telemetría, devuelve
 valores iniciales:
 
 ```json
 {
   "data": {
     "feederId": "feeder-uuid",
-    "plateFoodGrams": 0,
-    "hopperFoodGrams": 0,
-    "hopperCapacityGrams": 2000,
+    "plateFoodGrams": null,
+    "hopperFoodGrams": null,
+    "hopperCapacityGrams": null,
     "lastDispensedGrams": null,
     "lastDispensedAt": null,
     "isOnline": false,
@@ -263,6 +265,9 @@ recentConsumption
 
 Actualmente `alerts`, `selectedFood` y `recentConsumption` son placeholders
 vacíos o `null`; sus endpoints especializados sí están implementados.
+
+Cuando no existe telemetría del ESP32, las cantidades de plato, depósito y
+capacidad son `null`. Esto significa “sin lectura”, no “0 gramos”.
 
 ### `POST /feeders/:feederId/actions/dispense`
 
