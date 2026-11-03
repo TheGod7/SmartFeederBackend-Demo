@@ -1,6 +1,6 @@
-import { IsOptional, IsString } from 'class-validator';
+import { IsIn, IsOptional, IsString } from 'class-validator';
 
 export class CommandStatusDto {
-  @IsString() status!: string;
+  @IsString() @IsIn(['queued', 'sent', 'processing', 'completed', 'failed', 'expired']) status!: string;
   @IsOptional() @IsString() failureReason?: string;
 }

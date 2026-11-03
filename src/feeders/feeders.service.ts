@@ -6,6 +6,8 @@ import { DispenseDto } from './dto/dispense.dto.js';
 import { UpdateScheduleDto } from './dto/update-schedule.dto.js';
 import { DEMO_USER_ID } from '../common/demo-user.js';
 
+const TELEMETRY_TIMEOUT_MS = 5 * 60 * 1000;
+
 @Injectable()
 export class FeedersService {
   constructor(private readonly prisma: PrismaService) {}
@@ -61,7 +63,7 @@ export class FeedersService {
   }
 
   async status(feederId: string) {
-    const feeder = await this.findOne(feederId);
+    await this.findOne(feederId);
     const latest = await this.prisma.feederStatus.findFirst({ where: { feederId }, orderBy: { createdAt: 'desc' } });
     const lastDispensedEvent = await this.prisma.feedingEvent.findFirst({
       where: { feederId, dispensedGrams: { not: null } },
@@ -75,13 +77,16 @@ export class FeedersService {
       hopperCapacityGrams: null,
       lastDispensedGrams: null,
       lastDispensedAt: null,
-      isOnline: feeder.isOnline,
-      lastSeenAt: feeder.lastSeenAt,
+      isOnline: false,
+      lastSeenAt: null,
       motorStatus: 'ready',
       sensorStatus: 'not_calibrated',
     };
+    const lastSeenAt = base.lastSeenAt ? new Date(base.lastSeenAt).getTime() : Number.NaN;
+    const isOnline = Number.isFinite(lastSeenAt) && Date.now() - lastSeenAt <= TELEMETRY_TIMEOUT_MS;
     return {
       ...base,
+      isOnline,
       lastDispensedGrams: lastDispensedEvent?.dispensedGrams ?? base.lastDispensedGrams,
       lastDispensedAt: lastDispensedEvent?.dispensedAt ?? base.lastDispensedAt,
     };
@@ -94,6 +99,11 @@ export class FeedersService {
 
   async dispense(feederId: string, dto: DispenseDto) {
     await this.findOne(feederId);
-    return this.prisma.deviceCommand.create({ data: { feederId, type: 'dispense', requestedGrams: dto.grams } });
+    return this.prisma.$transaction(async (transaction) => {
+      const event = await transaction.feedingEvent.create({ data: { feederId, status: 'scheduled' } });
+      return transaction.deviceCommand.create({
+        data: { feederId, feedingEventId: event.id, type: 'dispense', requestedGrams: dto.grams },
+      });
+    });
   }
 }
