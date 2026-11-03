@@ -136,6 +136,8 @@ type FeedingEvent = {
 type DeviceCommand = {
   id: string;
   feederId: string;
+  feedingEventId: string | null;
+  executionKey: string | null;
   type: string;
   payload: string | null;
   status: string;
@@ -143,6 +145,7 @@ type DeviceCommand = {
   failureReason: string | null;
   createdAt: string;
   sentAt: string | null;
+  processingAt: string | null;
   completedAt: string | null;
 };
 ```
@@ -161,6 +164,22 @@ type DeviceTelemetry = {
   wifiSignal: number | null;
   firmwareVersion: string | null;
   createdAt: string;
+};
+
+type FeederStatus = {
+  id?: string;
+  feederId: string;
+  plateFoodGrams: number | null;
+  hopperFoodGrams: number | null;
+  hopperCapacityGrams: number | null;
+  lastDispensedGrams: number | null;
+  lastDispensedAt: string | null;
+  isOnline: boolean;
+  lastSeenAt: string | null;
+  firmwareVersion?: string | null;
+  motorStatus: string;
+  sensorStatus: string;
+  createdAt?: string;
 };
 ```
 
@@ -224,6 +243,11 @@ Request:
 
 `deviceCode` es único en la base de datos.
 
+Este endpoint se usa para registrar el comedero antes de conectar el ESP32.
+No lo llama el firmware. Para el comedero demo, la capacidad máxima del
+depósito es de 5000 gramos; esa configuración no representa comida cargada.
+El registro se crea sin mascota, alimento seleccionado, horarios ni lecturas.
+
 ### `GET /feeders/:feederId`
 
 ### `GET /feeders/:feederId/status`
@@ -267,7 +291,11 @@ Actualmente `alerts`, `selectedFood` y `recentConsumption` son placeholders
 vacíos o `null`; sus endpoints especializados sí están implementados.
 
 Cuando no existe telemetría del ESP32, las cantidades de plato, depósito y
-capacidad son `null`. Esto significa “sin lectura”, no “0 gramos”.
+capacidad son `null`, salvo que la capacidad máxima haya sido configurada por
+el backend. Para el comedero demo, `hopperCapacityGrams` puede ser `5000`,
+mientras `plateFoodGrams` y `hopperFoodGrams` permanecen en `null`. La
+capacidad no representa comida disponible y no debe confundirse con
+`hopperFoodGrams`.
 
 ### `POST /feeders/:feederId/actions/dispense`
 
@@ -321,7 +349,30 @@ Acepta cualquier subconjunto de:
 
 ### `DELETE /schedules/:scheduleId`
 
+### Ejecución automática
+
+El backend revisa los horarios activos cada 15 segundos. Cuando la hora local
+coincide con `time` y el día está incluido en `daysOfWeek`, crea dentro de una
+transacción:
+
+```text
+FeedingEvent: scheduled
+DeviceCommand: queued
+```
+
+El comando queda asociado al evento mediante `feedingEventId`. La clave
+`scheduleId:fecha-localThora` evita duplicar una ejecución aunque el ciclo se
+repita o la aplicación se reinicie dentro del mismo minuto. El scheduler usa
+el `timezone` del horario y, si no existe, el del comedero.
+
+No hay un proceso que ejecute el motor desde NestJS. El ESP32 recoge el
+`DeviceCommand` mediante polling.
+
 ## 7. Handshake del dispositivo
+
+Estos cuatro endpoints son los que usa directamente el ESP32. El registro del
+comedero y la configuración de capacidad ocurren antes, desde el frontend o
+el backend.
 
 ### `POST /device/connect`
 
@@ -379,6 +430,11 @@ Request:
 El DTO valida `reportedAt` como fecha ISO, gramos no negativos y RSSI entre
 `-120` y `0`.
 
+`plateFoodGrams` y `hopperFoodGrams` son lecturas reales, no capacidades. Son
+opcionales y pueden omitirse si el sensor no está disponible. El ESP32 no
+debe enviar `0` para representar una lectura desconocida. La capacidad máxima
+del depósito no se modifica con este endpoint.
+
 La escritura produce dos registros:
 
 ```text
@@ -409,6 +465,96 @@ Request:
 
 Si `status` es `sent`, se guarda `sentAt`. Si es `completed`, `failed` o
 `expired`, se guarda `completedAt`.
+
+El ESP32 debe llamar este endpoint tres veces como máximo durante una
+dispensación: `sent` al recibir el comando, `processing` al activar el motor y
+`completed` o `failed` al terminar. Si se desconecta antes de confirmar,
+debe consultar nuevamente los comandos pendientes antes de iniciar otra
+dispensación.
+
+### Estados del comando
+
+```text
+queued      Creado y esperando al ESP32.
+sent        El ESP32 lo recibió.
+processing  El motor está ejecutándose.
+completed   Terminó correctamente o entregó una ración parcial.
+failed      El ESP32 reportó un error físico.
+expired     El backend agotó el tiempo de espera.
+```
+
+Timeouts por defecto:
+
+```text
+queued      2 minutos sin ser recogido -> expired
+sent        1 minuto sin iniciar -> expired
+processing  5 minutos sin terminar -> failed
+```
+
+Se pueden cambiar con variables de entorno en milisegundos:
+
+```env
+COMMAND_QUEUED_TIMEOUT_MS=120000
+COMMAND_SENT_TIMEOUT_MS=60000
+COMMAND_PROCESSING_TIMEOUT_MS=300000
+DEVICE_OFFLINE_TIMEOUT_MS=300000
+```
+
+### `POST /device/:feederId/dispense-result`
+
+Este es el flujo recomendado para reportar el resultado completo de una
+dispensación. Es atómico e idempotente.
+
+Request exitoso:
+
+```json
+{
+  "commandId": "command-uuid",
+  "feedingEventId": "event-uuid",
+  "status": "completed",
+  "startedAt": "2026-11-03T14:00:00.000Z",
+  "dispensedAt": "2026-11-03T14:00:08.000Z",
+  "completedAt": "2026-11-03T14:00:08.000Z",
+  "dispensedGrams": 25
+}
+```
+
+Request con error físico:
+
+```json
+{
+  "commandId": "command-uuid",
+  "feedingEventId": "event-uuid",
+  "status": "failed",
+  "startedAt": "2026-11-03T14:00:00.000Z",
+  "completedAt": "2026-11-03T14:00:03.000Z",
+  "failureReason": "Motor bloqueado",
+  "hardwareErrorCode": "MOTOR_BLOCKED",
+  "dispensedGrams": 4
+}
+```
+
+Campos de `status`:
+
+```text
+completed  Completó la ración.
+partial    Entregó menos gramos de los solicitados.
+failed     Falló el motor, sensor u otro componente.
+skipped    No se ejecutó la ración.
+```
+
+El endpoint valida que el comando pertenezca al comedero, actualiza el
+comando, actualiza o crea el evento, guarda gramos y tiempos, toma un snapshot
+de `FeederStatus` y crea una alerta para `failed`, `partial` o `skipped`.
+Repetir exactamente el mismo resultado devuelve el registro existente y no
+crea una segunda dispensación.
+
+Errores comunes:
+
+```text
+400  status, fechas o gramos inválidos.
+404  commandId inexistente o perteneciente a otro comedero.
+```
 
 ## 10. Eventos de alimentación
 
@@ -626,12 +772,28 @@ La API guarda la URL; no retransmite video desde NestJS.
 ### ESP32
 
 ```text
-1. POST /device/connect
-2. POST /device/:feederId/telemetry cada 30 s
-3. GET /device/:feederId/commands/pending cada 3 s
-4. PATCH /device/commands/:commandId al iniciar y terminar
-5. POST /feeders/:feederId/feeding-events al concluir
-6. POST /device/:feederId/telemetry inmediatamente después
+1. El frontend crea el comedero con POST /feeders
+2. POST /device/connect al iniciar o reconectar
+3. POST /device/:feederId/telemetry inmediatamente después de conectar
+4. GET /device/:feederId/commands/pending cada 3 s
+5. PATCH /device/commands/:commandId con sent, processing y resultado
+6. POST /feeders/:feederId/feeding-events al concluir una dispensación
+7. POST /device/:feederId/telemetry después de la dispensación
+```
+
+El ESP32 no llama `POST /feeders`, porque ese endpoint requiere definir el
+registro del comedero y su `deviceCode` antes de que el dispositivo pueda
+conectarse. Tampoco administra alimentos, mascotas, horarios o cámara.
+
+### Flujo completo
+
+```text
+Frontend crea/edita horario
+  -> Scheduler NestJS crea FeedingEvent scheduled + DeviceCommand queued
+  -> ESP32 hace polling y confirma sent
+  -> ESP32 activa motor y confirma processing
+  -> ESP32 reporta dispense-result completed/partial/failed
+  -> Backend actualiza comando, evento, estado y alertas
 ```
 
 ## 15. Limitaciones conocidas
@@ -640,10 +802,14 @@ La API guarda la URL; no retransmite video desde NestJS.
 - El usuario demo se crea automáticamente.
 - El `testCode` es compartido.
 - No hay HTTPS obligatorio.
-- No hay proceso automático que marque offline al dispositivo.
+- Un dispositivo se considera offline si no existe telemetría en los últimos
+  5 minutos. El estado se calcula al consultar el dashboard o el endpoint de
+  estado; no se necesita un proceso en segundo plano.
 - El dashboard todavía devuelve placeholders para alertas, alimento y
   consumo reciente.
 - La ejecución automática de horarios todavía requiere un scheduler; guardar
   un horario no hace que NestJS dispare un comando por sí solo.
 - El polling de comandos es responsabilidad del ESP32.
+- El scheduler expira comandos no confirmados y marca el evento como skipped o
+  failed.
 - La cámara solo guarda metadata y URL.

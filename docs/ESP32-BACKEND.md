@@ -152,9 +152,10 @@ Feeder.isOnline = true
 Feeder.lastSeenAt
 ```
 
-Si el ESP32 deja de enviar telemetria, el backend no lo marca offline
-automaticamente todavia. Para la demo, el frontend puede considerar offline un
-dispositivo cuyo `lastSeenAt` tenga mas de 90 segundos.
+Si el ESP32 deja de enviar telemetria, el backend considera offline el
+dispositivo cuando su ultima telemetria supera 5 minutos. El frontend debe
+aplicar la misma regla para evitar mostrar disponible una respuesta
+desactualizada.
 
 ## Paso 4: consultar comandos
 
