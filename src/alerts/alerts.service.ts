@@ -12,6 +12,29 @@ export class AlertsService {
   create(feederId: string, dto: CreateAlertDto) {
     return this.prisma.alert.create({ data: { feederId, ...dto, severity: dto.severity ?? 'info', metadata: dto.metadata ? JSON.stringify(dto.metadata) : undefined } });
   }
+  async createAutomatic(feederId: string, input: { type: string; title: string; detail: string; category: string; severity?: string; metadata?: Record<string, unknown>; dedupeKey?: string }) {
+    const recent = await this.prisma.alert.findFirst({
+      where: {
+        feederId,
+        type: input.type,
+        ...(input.dedupeKey ? { detail: { contains: input.dedupeKey } } : {}),
+        createdAt: { gte: new Date(Date.now() - 5 * 60 * 1000) },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (recent) return recent;
+    return this.prisma.alert.create({
+      data: {
+        feederId,
+        type: input.type,
+        title: input.title,
+        detail: input.detail,
+        category: input.category,
+        severity: input.severity ?? 'warning',
+        metadata: input.metadata ? JSON.stringify(input.metadata) : undefined,
+      },
+    });
+  }
   async read(alertId: string) {
     const alert = await this.prisma.alert.findUnique({ where: { id: alertId } });
     if (!alert) throw new NotFoundException('Alerta no encontrada');

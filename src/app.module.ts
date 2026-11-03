@@ -9,9 +9,10 @@ import { AlertsModule } from './alerts/alerts.module.js';
 import { FoodsModule } from './foods/foods.module.js';
 import { DevicesModule } from './devices/devices.module.js';
 import { CameraModule } from './camera/camera.module.js';
+import { SchedulerModule } from './scheduler/scheduler.module.js';
 
 @Module({
-  imports: [PrismaModule, PetsModule, FeedersModule, FeedingEventsModule, AlertsModule, FoodsModule, DevicesModule, CameraModule],
+  imports: [PrismaModule, PetsModule, FeedersModule, FeedingEventsModule, AlertsModule, FoodsModule, DevicesModule, CameraModule, SchedulerModule],
   controllers: [AppController],
   providers: [AppService],
 })

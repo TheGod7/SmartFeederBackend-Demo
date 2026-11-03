@@ -103,6 +103,7 @@ model FeedingEvent {
   createdAt       DateTime @default(now())
   feeder          Feeder   @relation(fields: [feederId], references: [id], onDelete: Cascade)
   schedule        Schedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+  command         DeviceCommand?
 
   @@index([feederId, createdAt])
   @@index([status])
@@ -179,6 +180,8 @@ model FeederFood {
 model DeviceCommand {
   id            String   @id @default(uuid())
   feederId      String
+  feedingEventId String?  @unique
+  executionKey  String?   @unique
   type          String
   payload       String?
   status        String   @default("queued")
@@ -186,8 +189,10 @@ model DeviceCommand {
   failureReason String?
   createdAt     DateTime @default(now())
   sentAt        DateTime?
+  processingAt  DateTime?
   completedAt   DateTime?
   feeder        Feeder   @relation(fields: [feederId], references: [id], onDelete: Cascade)
+  feedingEvent  FeedingEvent? @relation(fields: [feedingEventId], references: [id], onDelete: SetNull)
 
   @@index([feederId, status, createdAt])
 }
