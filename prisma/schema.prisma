@@ -150,12 +150,17 @@ model Food {
   name            String
   description     String?
   species         String
+  productType     String   @default("dry")
+  lifeStage       String   @default("adult")
   proteinPercent  Float?
   fatPercent      Float?
   fiberPercent    Float?
   moisturePercent Float?
   energyKcalPerKg Int?
   imageUrl        String?
+  imageAlt        String?
+  sourceUrl       String?
+  nutritionBasis  String   @default("as_fed")
   isActive        Boolean  @default(true)
   createdAt       DateTime @default(now())
   feeders         FeederFood[]

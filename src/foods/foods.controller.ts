@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { apiData, apiList } from '../common/api-response.js';
 import { CreateFoodDto } from './dto/create-food.dto.js';
 import { FoodsService } from './foods.service.js';
@@ -6,7 +6,7 @@ import { FoodsService } from './foods.service.js';
 @Controller('foods')
 export class FoodsController {
   constructor(private readonly service: FoodsService) {}
-  @Get() list() { return this.service.list().then(apiList); }
+  @Get() list(@Query('species') species?: string) { return this.service.list(species).then(apiList); }
   @Get(':foodId') findOne(@Param('foodId') id: string) { return this.service.findOne(id).then(apiData); }
   @Post() create(@Body() dto: CreateFoodDto) { return this.service.create(dto).then(apiData); }
 }

@@ -90,11 +90,19 @@ PATCH /api/v1/alerts/:alertId/read
 
 ```text
 GET   /api/v1/foods
+GET   /api/v1/foods?species=cat
+GET   /api/v1/foods?species=dog
 POST  /api/v1/foods
 GET   /api/v1/foods/:foodId
 GET   /api/v1/feeders/:feederId/food
 PATCH /api/v1/feeders/:feederId/food
 ```
+
+El backend carga un catálogo inicial con productos concretos de Purina, Royal
+Canin, NUPEC, PEDIGREE y Hill's, incluyendo proteína, grasa, fibra, humedad,
+etapa de vida, tipo de alimento, fuente nutricional e imagen representativa.
+La energía se guarda solo cuando está publicada para la fórmula concreta;
+cuando no hay un dato verificable se devuelve `null`, no `0`.
 
 ### Dispositivo
 

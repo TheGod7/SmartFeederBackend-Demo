@@ -506,6 +506,13 @@ Respuesta:
 
 ### `GET /foods`
 
+Filtro opcional:
+
+```text
+GET /foods?species=cat
+GET /foods?species=dog
+```
+
 ### `POST /foods`
 
 Request:
@@ -521,9 +528,38 @@ Request:
   "fiberPercent": 4,
   "moisturePercent": 8,
   "energyKcalPerKg": 3750,
-  "imageUrl": "https://example.com/food.png"
+  "imageUrl": "https://example.com/food.png",
+  "imageAlt": "Gato adulto junto a su alimento",
+  "sourceUrl": "https://www.royalcanin.com/mx/...",
+  "nutritionBasis": "as_fed"
 }
 ```
+
+El catálogo inicial se carga automáticamente al iniciar el backend. Incluye
+fórmulas concretas de Royal Canin, NUPEC, Hill's Science Diet, Purina Cat Chow,
+Purina Dog Chow y PEDIGREE. Los valores corresponden a la presentación
+específica indicada, no a toda la marca.
+
+`nutritionBasis` puede ser:
+
+```text
+as_fed       Porcentaje tal como se declara en el producto.
+dry_matter   Porcentaje convertido o publicado sobre materia seca.
+```
+
+Los productos iniciales incluyen `sourceUrl` para consultar la ficha de
+referencia. `imageUrl` apunta a una imagen genérica representativa de perro o
+gato; no se presenta como fotografía oficial del empaque. En una aplicación
+comercial conviene reemplazarla por imágenes con licencia propia.
+
+`energyKcalPerKg` solo se llena cuando se encontró una cifra publicada para
+esa fórmula y presentación. Si la marca no publica energía metabolizable en la
+ficha consultada, el valor es `null`; nunca se usa `0` como sustituto de un
+dato desconocido. En el catálogo actual hay energía publicada para Royal
+Canin Indoor Adult, Hill's Adult Salmon, Purina Cat Chow húmedo, Royal Canin
+Medium Adult y Hill's Adult Chicken and Barley. NUPEC Felino Senior, Purina
+Dog Chow, PEDIGREE Adulto y NUPEC Adulto quedan sin kcal/kg verificable en la
+fuente consultada.
 
 ### `GET /foods/:foodId`
 
@@ -606,4 +642,3 @@ La API guarda la URL; no retransmite video desde NestJS.
   un horario no hace que NestJS dispare un comando por sí solo.
 - El polling de comandos es responsabilidad del ESP32.
 - La cámara solo guarda metadata y URL.
-

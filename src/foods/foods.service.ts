@@ -5,7 +5,7 @@ import { CreateFoodDto } from './dto/create-food.dto.js';
 @Injectable()
 export class FoodsService {
   constructor(private readonly prisma: PrismaService) {}
-  list() { return this.prisma.food.findMany({ where: { isActive: true }, orderBy: [{ brand: 'asc' }, { name: 'asc' }] }); }
+  list(species?: string) { return this.prisma.food.findMany({ where: { isActive: true, ...(species ? { species } : {}) }, orderBy: [{ species: 'asc' }, { brand: 'asc' }, { name: 'asc' }] }); }
   findOne(id: string) {
     return this.prisma.food.findUnique({ where: { id } }).then((food) => {
       if (!food) throw new NotFoundException('Alimento no encontrado');
