@@ -291,9 +291,10 @@ vacíos o `null`; sus endpoints especializados sí están implementados.
 Cuando no existe telemetría del ESP32, las cantidades de plato, depósito y
 capacidad son `null`, salvo que la capacidad máxima haya sido configurada por
 el backend. `plateFoodGrams` permanece en gramos y `hopperFoodPercent` se
-reporta entre `0` y `100` usando el sensor ultrasónico. Ambos permanecen en
+reporta entre `0` y `100` usando el sensor infrarrojo. Ambos permanecen en
 `null` hasta recibir una lectura válida. `0` en `hopperFoodPercent` significa
-contenedor medido como vacío, no “sin lectura”.
+contenedor medido como vacío, no “sin lectura”. El porcentaje proviene del
+sensor infrarrojo integrado en el depósito.
 
 ### `POST /feeders/:feederId/actions/dispense`
 

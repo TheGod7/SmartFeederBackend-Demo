@@ -120,11 +120,11 @@ Puede cambiarse en el backend:
 DEVICE_TEST_CODE=MI-CODIGO-DE-DEMO
 ```
 
-### Medición ultrasónica del depósito
+### Medición infrarroja del depósito
 
 El ESP32 debe reportar el nivel estimado del contenedor como porcentaje en
-`hopperFoodPercent`. El sensor ultrasónico debe convertir la distancia medida
-a un valor entre `0` y `100`:
+`hopperFoodPercent`. El sensor infrarrojo debe convertir su lectura de nivel a
+un valor entre `0` y `100`:
 
 ```text
 100 = depósito lleno
