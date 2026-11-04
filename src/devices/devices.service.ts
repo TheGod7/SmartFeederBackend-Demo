@@ -33,7 +33,7 @@ export class DevicesService {
       data: {
         feederId,
         plateFoodGrams: dto.plateFoodGrams,
-        hopperFoodGrams: dto.hopperFoodGrams,
+        hopperFoodPercent: dto.hopperFoodPercent,
         motorStatus: dto.motorStatus,
         sensorStatus: dto.sensorStatus,
         firmwareVersion: dto.firmwareVersion,
@@ -58,7 +58,7 @@ export class DevicesService {
         category: 'device',
       });
     }
-    if (dto.hopperFoodGrams === 0) {
+    if (dto.hopperFoodPercent === 0) {
       await this.alerts.createAutomatic(feederId, {
         type: 'hopper_empty',
         title: 'Depósito vacío',
@@ -121,8 +121,7 @@ export class DevicesService {
         data: {
           feederId,
           plateFoodGrams: latestStatus?.plateFoodGrams,
-          hopperFoodGrams: latestStatus?.hopperFoodGrams,
-          hopperCapacityGrams: latestStatus?.hopperCapacityGrams,
+          hopperFoodPercent: latestStatus?.hopperFoodPercent,
           lastDispensedGrams: dto.dispensedGrams,
           lastDispensedAt: dto.dispensedAt ? new Date(dto.dispensedAt) : now,
           isOnline: true,

@@ -73,8 +73,7 @@ export class FeedersService {
     const base = latest ?? {
       feederId,
       plateFoodGrams: null,
-      hopperFoodGrams: null,
-      hopperCapacityGrams: null,
+      hopperFoodPercent: null,
       lastDispensedGrams: null,
       lastDispensedAt: null,
       isOnline: false,

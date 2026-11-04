@@ -3,7 +3,7 @@ import { IsDateString, IsInt, IsOptional, IsString, Max, Min } from 'class-valid
 export class TelemetryDto {
   @IsDateString() reportedAt!: string;
   @IsOptional() @IsInt() @Min(0) plateFoodGrams?: number;
-  @IsOptional() @IsInt() @Min(0) hopperFoodGrams?: number;
+  @IsOptional() @IsInt() @Min(0) @Max(100) hopperFoodPercent?: number;
   @IsOptional() @IsString() motorStatus?: string;
   @IsOptional() @IsString() sensorStatus?: string;
   @IsOptional() @IsInt() @Min(-120) @Max(0) wifiSignal?: number;

@@ -113,8 +113,7 @@ model FeederStatus {
   id                String   @id @default(uuid())
   feederId          String
   plateFoodGrams    Int?
-  hopperFoodGrams   Int?
-  hopperCapacityGrams Int?
+  hopperFoodPercent  Int?
   lastDispensedGrams Int?
   lastDispensedAt   DateTime?
   isOnline          Boolean  @default(false)
@@ -202,7 +201,7 @@ model DeviceTelemetry {
   feederId        String
   reportedAt      DateTime
   plateFoodGrams  Int?
-  hopperFoodGrams Int?
+  hopperFoodPercent Int?
   motorStatus     String?
   sensorStatus    String?
   wifiSignal      Int?
