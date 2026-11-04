@@ -1,4 +1,4 @@
--- Rename hopper readings from grams to ultrasonic percentage.
+-- Rename hopper readings from grams to infrared-sensor percentage.
 ALTER TABLE "FeederStatus" RENAME COLUMN "hopperFoodGrams" TO "hopperFoodPercent";
 ALTER TABLE "DeviceTelemetry" RENAME COLUMN "hopperFoodGrams" TO "hopperFoodPercent";
 
