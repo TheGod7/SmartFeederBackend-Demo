@@ -120,15 +120,21 @@ Puede cambiarse en el backend:
 DEVICE_TEST_CODE=MI-CODIGO-DE-DEMO
 ```
 
-### Capacidad del depósito
+### Medición ultrasónica del depósito
 
-La capacidad máxima configurada para este comedero es de **5000 gramos (5 kg)**.
-Ese valor describe cuánto puede contener el depósito; no significa que haya
-comida cargada.
+El ESP32 debe reportar el nivel estimado del contenedor como porcentaje en
+`hopperFoodPercent`. El sensor ultrasónico debe convertir la distancia medida
+a un valor entre `0` y `100`:
 
-El ESP32 debe reportar únicamente la comida que mida realmente en
-`hopperFoodGrams`. Si el sensor todavía no tiene una lectura, debe omitir el
-campo. No debe enviar `0` para representar “sin lectura”.
+```text
+100 = depósito lleno
+50  = mitad de la capacidad
+0   = depósito vacío
+```
+
+Si el sensor todavía no tiene una lectura válida, debe omitir el campo. No debe
+enviar `0` para representar “sin lectura”; `0` significa que el contenedor fue
+medido como vacío.
 
 ## 3. Arranque y conexión
 
@@ -210,7 +216,7 @@ Ejemplo:
 {
   "reportedAt": "2026-11-02T20:01:00.000Z",
   "plateFoodGrams": 18,
-  "hopperFoodGrams": 420,
+  "hopperFoodPercent": 84,
   "motorStatus": "ready",
   "sensorStatus": "ready",
   "wifiSignal": -58,
@@ -224,7 +230,7 @@ Ejemplo:
 |---|---|---:|---|
 | `reportedAt` | string ISO 8601 | Sí | Momento de la lectura en UTC |
 | `plateFoodGrams` | entero `>= 0` | No | Comida actualmente en el plato |
-| `hopperFoodGrams` | entero `>= 0` | No | Comida restante en el depósito |
+| `hopperFoodPercent` | entero `0..100` | No | Porcentaje medido del contenedor |
 | `motorStatus` | string | No | `ready`, `dispensing`, `blocked` o `error` |
 | `sensorStatus` | string | No | `ready`, `error` o `not_calibrated` |
 | `wifiSignal` | entero entre `-120` y `0` | No | RSSI en dBm |
@@ -239,7 +245,7 @@ El backend responde con el registro guardado:
     "feederId": "feeder-uuid",
     "reportedAt": "2026-11-02T20:01:00.000Z",
     "plateFoodGrams": 18,
-    "hopperFoodGrams": 420,
+    "hopperFoodPercent": 84,
     "motorStatus": "ready",
     "sensorStatus": "ready",
     "wifiSignal": -58,
@@ -259,11 +265,11 @@ El backend considera offline un comedero cuya última telemetría tenga más de
 5 minutos. El frontend debe aplicar la misma regla al mostrar el estado, para
 que no muestre como disponible una respuesta almacenada o desactualizada.
 
-Antes de la primera telemetría, el backend devuelve `null` para las cantidades
-del plato y depósito. La capacidad máxima puede estar configurada como `5000`
-gramos, pero sigue siendo independiente de la cantidad real de comida. El
-ESP32 debe enviar las cantidades medidas cuando las conozca; no debe mandar
-`0` si el sensor no está disponible.
+Antes de la primera telemetría, el backend devuelve `null` para las lecturas
+del plato y del contenedor. `plateFoodGrams` sigue siendo gramos y
+`hopperFoodPercent` es porcentaje. El ESP32 debe omitir cualquiera de los dos
+si su sensor no está disponible; no debe mandar `0` para representar una
+lectura desconocida.
 
 ## 5. Comandos: cómo recibe instrucciones el ESP32
 

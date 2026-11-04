@@ -158,7 +158,7 @@ type DeviceTelemetry = {
   feederId: string;
   reportedAt: string;
   plateFoodGrams: number | null;
-  hopperFoodGrams: number | null;
+  hopperFoodPercent: number | null;
   motorStatus: string | null;
   sensorStatus: string | null;
   wifiSignal: number | null;
@@ -170,8 +170,7 @@ type FeederStatus = {
   id?: string;
   feederId: string;
   plateFoodGrams: number | null;
-  hopperFoodGrams: number | null;
-  hopperCapacityGrams: number | null;
+  hopperFoodPercent: number | null;
   lastDispensedGrams: number | null;
   lastDispensedAt: string | null;
   isOnline: boolean;
@@ -262,8 +261,7 @@ valores iniciales:
   "data": {
     "feederId": "feeder-uuid",
     "plateFoodGrams": null,
-    "hopperFoodGrams": null,
-    "hopperCapacityGrams": null,
+    "hopperFoodPercent": null,
     "lastDispensedGrams": null,
     "lastDispensedAt": null,
     "isOnline": false,
@@ -292,10 +290,10 @@ vacíos o `null`; sus endpoints especializados sí están implementados.
 
 Cuando no existe telemetría del ESP32, las cantidades de plato, depósito y
 capacidad son `null`, salvo que la capacidad máxima haya sido configurada por
-el backend. Para el comedero demo, `hopperCapacityGrams` puede ser `5000`,
-mientras `plateFoodGrams` y `hopperFoodGrams` permanecen en `null`. La
-capacidad no representa comida disponible y no debe confundirse con
-`hopperFoodGrams`.
+el backend. `plateFoodGrams` permanece en gramos y `hopperFoodPercent` se
+reporta entre `0` y `100` usando el sensor ultrasónico. Ambos permanecen en
+`null` hasta recibir una lectura válida. `0` en `hopperFoodPercent` significa
+contenedor medido como vacío, no “sin lectura”.
 
 ### `POST /feeders/:feederId/actions/dispense`
 
@@ -419,7 +417,7 @@ Request:
 {
   "reportedAt": "2026-11-02T20:01:00.000Z",
   "plateFoodGrams": 18,
-  "hopperFoodGrams": 420,
+  "hopperFoodPercent": 84,
   "motorStatus": "ready",
   "sensorStatus": "ready",
   "wifiSignal": -58,
@@ -430,10 +428,10 @@ Request:
 El DTO valida `reportedAt` como fecha ISO, gramos no negativos y RSSI entre
 `-120` y `0`.
 
-`plateFoodGrams` y `hopperFoodGrams` son lecturas reales, no capacidades. Son
-opcionales y pueden omitirse si el sensor no está disponible. El ESP32 no
-debe enviar `0` para representar una lectura desconocida. La capacidad máxima
-del depósito no se modifica con este endpoint.
+`plateFoodGrams` y `hopperFoodPercent` son lecturas reales y opcionales.
+`plateFoodGrams` se expresa en gramos; `hopperFoodPercent` se expresa como
+entero de `0` a `100`. El ESP32 puede omitirlos si el sensor no está
+disponible. No debe enviar `0` para representar una lectura desconocida.
 
 La escritura produce dos registros:
 
@@ -632,7 +630,7 @@ Request:
   "category": "hopper",
   "severity": "warning",
   "metadata": {
-    "hopperFoodGrams": 100
+    "hopperFoodPercent": 30
   }
 }
 ```

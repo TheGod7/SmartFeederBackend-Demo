@@ -137,7 +137,7 @@ Content-Type: application/json
 {
   "reportedAt": "2026-11-02T20:01:00.000Z",
   "plateFoodGrams": 18,
-  "hopperFoodGrams": 420,
+  "hopperFoodPercent": 84,
   "motorStatus": "ready",
   "sensorStatus": "ready",
   "wifiSignal": -58,
@@ -287,7 +287,7 @@ bool connectDevice() {
 void sendTelemetry() {
   String response;
   String body = "{\"reportedAt\":\"2026-11-02T20:01:00.000Z\","
-                "\"plateFoodGrams\":18,\"hopperFoodGrams\":420,"
+                "\"plateFoodGrams\":18,\"hopperFoodPercent\":84,"
                 "\"motorStatus\":\"ready\",\"sensorStatus\":\"ready\","
                 "\"wifiSignal\":" + String(WiFi.RSSI()) +
                 ",\"firmwareVersion\":\"0.1.0\"}";
