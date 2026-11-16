@@ -62,8 +62,12 @@ export class DevicesService {
         plateFoodGrams: dto.plateFoodGrams ?? latestStatus?.plateFoodGrams,
         petPresent: dto.petPresent ?? latestStatus?.petPresent,
         petDistanceMm: dto.petDistanceMm ?? latestStatus?.petDistanceMm,
-        hopperFoodPercent: dto.hopperFoodPercent ?? latestStatus?.hopperFoodPercent,
-        hopperDistanceMm: dto.hopperDistanceMm ?? latestStatus?.hopperDistanceMm,
+        hopperFoodPercent: dto.hopperFoodPercent !== undefined
+          ? dto.hopperFoodPercent
+          : latestStatus?.hopperFoodPercent,
+        hopperDistanceMm: dto.hopperDistanceMm !== undefined
+          ? dto.hopperDistanceMm
+          : latestStatus?.hopperDistanceMm,
         motorStatus: dto.motorStatus ?? latestStatus?.motorStatus,
         sensorStatus: dto.sensorStatus ?? latestStatus?.sensorStatus,
         firmwareVersion: dto.firmwareVersion ?? latestStatus?.firmwareVersion,
