@@ -54,12 +54,19 @@ export class DevicesService {
       where: { feederId },
       orderBy: { createdAt: 'desc' },
     });
-    const telemetry = await this.prisma.deviceTelemetry.create({ data: { feederId, ...dto, reportedAt } });
+    const effectivePlateFoodGrams =
+      dto.petEvent === 'detected' && latestStatus?.plateFoodGrams !== null &&
+      latestStatus?.plateFoodGrams !== undefined
+        ? latestStatus.plateFoodGrams
+        : dto.plateFoodGrams;
+    const telemetry = await this.prisma.deviceTelemetry.create({
+      data: { feederId, ...dto, plateFoodGrams: effectivePlateFoodGrams, reportedAt },
+    });
     await this.prisma.feeder.update({ where: { id: feederId }, data: { isOnline: true, lastSeenAt: reportedAt } });
     await this.prisma.feederStatus.create({
       data: {
         feederId,
-        plateFoodGrams: dto.plateFoodGrams ?? latestStatus?.plateFoodGrams,
+        plateFoodGrams: effectivePlateFoodGrams ?? latestStatus?.plateFoodGrams,
         petPresent: dto.petPresent ?? latestStatus?.petPresent,
         petDistanceMm: dto.petDistanceMm ?? latestStatus?.petDistanceMm,
         hopperFoodPercent: dto.hopperFoodPercent !== undefined
@@ -75,7 +82,7 @@ export class DevicesService {
         isOnline: true,
       },
     });
-    if (dto.petEvent === 'detected') {
+    if (dto.petEvent === 'detected' && dto.petPresent === true) {
       const activeSession = await this.prisma.petPresenceSession.findFirst({
         where: { feederId, status: 'active' },
         orderBy: { detectedAt: 'desc' },
@@ -99,7 +106,7 @@ export class DevicesService {
             feederId,
             feedingEventId,
             detectedAt: reportedAt,
-            foodBeforeGrams: dto.plateFoodGrams,
+            foodBeforeGrams: effectivePlateFoodGrams,
             expectedGrams: latestDispense?.requestedGrams,
             status: 'active',
           },
@@ -109,7 +116,7 @@ export class DevicesService {
           title: 'Mascota detectada',
           detail: 'Se detectó una mascota frente al comedero.',
           category: 'feeding',
-          metadata: { petEvent: dto.petEvent, foodBeforeGrams: dto.plateFoodGrams },
+          metadata: { petEvent: dto.petEvent, foodBeforeGrams: effectivePlateFoodGrams },
         });
       }
     } else if (dto.petEvent === 'left') {
@@ -118,15 +125,15 @@ export class DevicesService {
         orderBy: { detectedAt: 'desc' },
       });
       if (activeSession) {
-        const consumedGrams = activeSession.foodBeforeGrams !== null && dto.plateFoodGrams !== undefined
-          ? Math.max(0, activeSession.foodBeforeGrams - dto.plateFoodGrams)
+        const consumedGrams = activeSession.foodBeforeGrams !== null && effectivePlateFoodGrams !== undefined
+          ? Math.max(0, activeSession.foodBeforeGrams - effectivePlateFoodGrams)
           : null;
         const completedSession = await this.prisma.$transaction(async (transaction) => {
           const session = await transaction.petPresenceSession.update({
             where: { id: activeSession.id },
             data: {
               leftAt: reportedAt,
-              foodAfterGrams: dto.plateFoodGrams,
+              foodAfterGrams: effectivePlateFoodGrams,
               consumedGrams,
               status: 'completed',
             },
@@ -136,7 +143,7 @@ export class DevicesService {
               where: { id: session.feedingEventId },
               data: {
                 consumedGrams,
-                remainingGrams: dto.plateFoodGrams,
+                remainingGrams: effectivePlateFoodGrams,
               },
             });
           }
@@ -154,7 +161,7 @@ export class DevicesService {
             sessionId: completedSession.id,
             consumedGrams,
             foodBeforeGrams: activeSession.foodBeforeGrams,
-            foodAfterGrams: dto.plateFoodGrams,
+            foodAfterGrams: effectivePlateFoodGrams,
           },
         });
         if (consumedGrams !== null && consumedGrams === 0) {
@@ -187,8 +194,8 @@ export class DevicesService {
     if (
       dto.petEvent === undefined &&
       dto.petPresent !== true &&
-      dto.plateFoodGrams !== undefined &&
-      dto.plateFoodGrams > DevicesService.PLATE_FOOD_THRESHOLD_GRAMS
+      effectivePlateFoodGrams !== undefined &&
+      effectivePlateFoodGrams > DevicesService.PLATE_FOOD_THRESHOLD_GRAMS
     ) {
       const latestDispense = await this.prisma.deviceCommand.findFirst({
         where: { feederId, type: 'dispense', status: 'completed' },
@@ -205,7 +212,7 @@ export class DevicesService {
           category: 'feeding',
           metadata: {
             commandId: latestDispense.id,
-            plateFoodGrams: dto.plateFoodGrams,
+            plateFoodGrams: effectivePlateFoodGrams,
           },
           dedupeKey: latestDispense.id,
         });
