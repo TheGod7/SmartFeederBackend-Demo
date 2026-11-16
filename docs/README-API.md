@@ -441,6 +441,12 @@ DeviceTelemetry: historial de lecturas.
 FeederStatus: snapshot usado por el dashboard.
 ```
 
+### `POST /device/:feederId/telemetry-request`
+
+Encola una solicitud de telemetría inmediata para que el ESP32 la procese en su
+siguiente consulta de comandos. Se usa al abrir el frontend sin cambiar la
+frecuencia normal de telemetría.
+
 ## 9. Comandos del dispositivo
 
 ### `GET /device/:feederId/commands/pending`
@@ -635,6 +641,12 @@ Request:
   }
 }
 ```
+
+### `DELETE /feeders/:feederId/feeding-events/history`
+
+Limpia los eventos, sesiones de mascota y comandos que ya terminaron para
+facilitar pruebas de debugging. Nunca elimina comandos pendientes o que estén
+en ejecución.
 
 ### `GET /feeders/:feederId/alerts/unread-count`
 

@@ -66,6 +66,7 @@ model Feeder {
   foods        FeederFood[]
   commands     DeviceCommand[]
   telemetry    DeviceTelemetry[]
+  petPresenceSessions PetPresenceSession[]
   camera       Camera?
 
   @@index([userId])
@@ -104,6 +105,7 @@ model FeedingEvent {
   feeder          Feeder   @relation(fields: [feederId], references: [id], onDelete: Cascade)
   schedule        Schedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
   command         DeviceCommand?
+  petSessions     PetPresenceSession[]
 
   @@index([feederId, createdAt])
   @@index([status])
@@ -113,7 +115,10 @@ model FeederStatus {
   id                String   @id @default(uuid())
   feederId          String
   plateFoodGrams    Int?
+  petPresent        Boolean?
+  petDistanceMm     Int?
   hopperFoodPercent  Int?
+  hopperDistanceMm   Int?
   lastDispensedGrams Int?
   lastDispensedAt   DateTime?
   isOnline          Boolean  @default(false)
@@ -201,7 +206,11 @@ model DeviceTelemetry {
   feederId        String
   reportedAt      DateTime
   plateFoodGrams  Int?
+  petPresent      Boolean?
+  petDistanceMm   Int?
+  petEvent        String?
   hopperFoodPercent Int?
+  hopperDistanceMm Int?
   motorStatus     String?
   sensorStatus    String?
   wifiSignal      Int?
@@ -210,6 +219,25 @@ model DeviceTelemetry {
   feeder          Feeder   @relation(fields: [feederId], references: [id], onDelete: Cascade)
 
   @@index([feederId, reportedAt])
+}
+
+model PetPresenceSession {
+  id              String   @id @default(uuid())
+  feederId        String
+  feedingEventId  String?
+  detectedAt      DateTime
+  leftAt          DateTime?
+  foodBeforeGrams Int?
+  foodAfterGrams  Int?
+  consumedGrams   Int?
+  expectedGrams   Int?
+  status          String   @default("active")
+  createdAt       DateTime @default(now())
+  feeder          Feeder   @relation(fields: [feederId], references: [id], onDelete: Cascade)
+  feedingEvent    FeedingEvent? @relation(fields: [feedingEventId], references: [id], onDelete: SetNull)
+
+  @@index([feederId, status, detectedAt])
+  @@index([feedingEventId])
 }
 
 model Camera {

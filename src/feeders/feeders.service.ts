@@ -73,7 +73,10 @@ export class FeedersService {
     const base = latest ?? {
       feederId,
       plateFoodGrams: null,
+      petPresent: null,
+      petDistanceMm: null,
       hopperFoodPercent: null,
+      hopperDistanceMm: null,
       lastDispensedGrams: null,
       lastDispensedAt: null,
       isOnline: false,
@@ -93,7 +96,18 @@ export class FeedersService {
 
   async dashboard(feederId: string) {
     const feeder = await this.findOne(feederId);
-    return { feeder, status: await this.status(feederId), schedules: await this.schedulesFor(feederId), alerts: [], selectedFood: null, recentConsumption: [] };
+    const [alerts, recentConsumption] = await Promise.all([
+      this.prisma.alert.findMany({ where: { feederId }, orderBy: { createdAt: 'desc' }, take: 10 }),
+      this.prisma.feedingEvent.findMany({ where: { feederId }, orderBy: { createdAt: 'desc' }, take: 10 }),
+    ]);
+    return {
+      feeder,
+      status: await this.status(feederId),
+      schedules: await this.schedulesFor(feederId),
+      alerts,
+      selectedFood: null,
+      recentConsumption,
+    };
   }
 
   async dispense(feederId: string, dto: DispenseDto) {

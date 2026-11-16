@@ -10,6 +10,7 @@ import { DevicesService } from './devices.service.js';
 export class DevicesController {
   constructor(private readonly service: DevicesService) {}
   @Post('connect') connect(@Body() dto: ConnectDeviceDto) { return this.service.connect(dto).then(apiData); }
+  @Post(':feederId/telemetry-request') requestTelemetry(@Param('feederId') id: string) { return this.service.requestTelemetry(id).then(apiData); }
   @Post(':feederId/telemetry') telemetry(@Param('feederId') id: string, @Body() dto: TelemetryDto) { return this.service.telemetry(id, dto).then(apiData); }
   @Get(':feederId/commands/pending') pending(@Param('feederId') id: string) { return this.service.pending(id).then(apiList); }
   @Patch('commands/:commandId') status(@Param('commandId') id: string, @Body() dto: CommandStatusDto) { return this.service.commandStatus(id, dto).then(apiData); }

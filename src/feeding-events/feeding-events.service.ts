@@ -71,4 +71,25 @@ export class FeedingEventsService {
       return result;
     }, {});
   }
+
+  async clearHistory(feederId: string) {
+    await this.assertFeeder(feederId);
+    const terminalStatuses = ['completed', 'partial', 'skipped', 'failed', 'expired', 'cancelled'];
+    return this.prisma.$transaction(async (transaction) => {
+      const sessions = await transaction.petPresenceSession.deleteMany({
+        where: { feederId, status: { not: 'active' } },
+      });
+      const events = await transaction.feedingEvent.deleteMany({
+        where: { feederId, status: { in: terminalStatuses } },
+      });
+      const commands = await transaction.deviceCommand.deleteMany({
+        where: { feederId, status: { in: terminalStatuses } },
+      });
+      return {
+        deletedSessions: sessions.count,
+        deletedEvents: events.count,
+        deletedCommands: commands.count,
+      };
+    });
+  }
 }

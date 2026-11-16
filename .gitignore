@@ -53,6 +53,10 @@ lerna-debug.log*
 *.db
 *.db-journal
 /prisma/
+!/prisma
+!/prisma/migrations/
+!/prisma/migrations/20261116003000_add_pet_consumption_sessions/
+!/prisma/migrations/20261116003000_add_pet_consumption_sessions/migration.sql
 pids
 *.pid
 *.seed

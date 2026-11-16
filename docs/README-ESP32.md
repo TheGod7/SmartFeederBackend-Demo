@@ -48,7 +48,7 @@ Cada endpoint tiene un momento distinto de uso:
 | Endpoint | Cuándo se usa | Frecuencia |
 |---|---|---|
 | `POST /device/connect` | Al encender y después de reconectar Wi-Fi | Una vez por conexión |
-| `POST /device/:feederId/telemetry` | Para reportar sensores y estado | Cada 3-4 minutos y después de eventos |
+| `POST /device/:feederId/telemetry` | Para reportar sensores y estado | Cada minuto, después de eventos y solicitudes puntuales |
 | `GET /device/:feederId/commands/pending` | Para recibir dispensaciones pendientes | Cada 1 minuto |
 | `PATCH /device/commands/:commandId` | Al recibir, iniciar y terminar un comando | Por comando |
 | `POST /feeders/:feederId/feeding-events` | Al finalizar una dispensación | Por dispensación |
@@ -194,7 +194,7 @@ no sustituye la telemetría periódica.
 
 ## 4. Telemetría: qué debe enviar y cada cuánto
 
-Enviar cada **3-4 minutos** es el valor recomendado para la demo. También
+Enviar cada **1 minuto** es el valor recomendado para la demo. También
 enviar inmediatamente después de:
 
 - Encender el ESP32.
@@ -260,6 +260,17 @@ Al recibir telemetría, el backend:
 2. Actualiza `Feeder.isOnline = true`.
 3. Actualiza `Feeder.lastSeenAt`.
 4. Crea una fotografía histórica en `FeederStatus`.
+
+La presencia se confirma en el firmware con dos lecturas ultrasónicas válidas
+consecutivas. Las lecturas inválidas no cierran una sesión; `petEvent: "left"`
+se envía después de 20 segundos sin detección válida, cinco lecturas de
+ausencia y una espera de estabilización del HX711. La espera no bloquea el
+ciclo principal del ESP32.
+
+El frontend puede solicitar una lectura puntual mediante
+`POST /device/:feederId/telemetry-request`. El backend crea un comando
+`telemetry_request`; el ESP32 lo consume en su siguiente consulta de comandos,
+envía la telemetría y marca el comando como completado.
 
 El backend considera offline un comedero cuya última telemetría tenga más de
 5 minutos. El frontend debe aplicar la misma regla al mostrar el estado, para
@@ -340,7 +351,7 @@ Al encontrar un comando:
 2. Cambiarlo a `processing`.
 3. Activar el motor.
 4. Detenerlo cuando se alcancen los gramos objetivo.
-5. Cambiarlo a `completed` o `failed`.
+5. Enviar el resultado atómico a `dispense-result`.
 6. Enviar telemetría nueva.
 
 Para marcarlo como procesando:
@@ -356,12 +367,10 @@ Content-Type: application/json
 }
 ```
 
-Para finalizar:
+Para finalizar, el firmware debe preferir el resultado atómico:
 
-```json
-{
-  "status": "completed"
-}
+```http
+POST /api/v1/device/:feederId/dispense-result
 ```
 
 Para informar un fallo:
@@ -384,9 +393,9 @@ failed       La operación falló.
 expired      El dispositivo no lo ejecutó a tiempo.
 ```
 
-La implementación actual no elimina automáticamente un comando de la lista
-hasta que el ESP lo cambie a `completed`, `failed` o `expired`. Por eso es
-importante actualizarlo a `processing` inmediatamente.
+Los comandos `processing` no se vuelven a entregar al ESP32. Esto evita que
+un reinicio durante una dispensación repita el movimiento; el scheduler del
+backend marcará como fallido un comando `processing` que supere su timeout.
 
 ## 6. Resultado atómico de la dispensación
 
@@ -491,6 +500,12 @@ valor representa cuánto desapareció del plato y debe omitirse si todavía no
 existe una lectura posterior. No debe enviarse `0` para representar un valor
 desconocido.
 
+Cuando el ESP32 envía `petEvent: "detected"`, el backend guarda el peso previo
+en `PetPresenceSession`. Al recibir `petEvent: "left"` guarda el peso posterior,
+calcula `foodBeforeGrams - foodAfterGrams` y copia el resultado en
+`FeedingEvent.consumedGrams` y `remainingGrams`. Por eso el consumo aparece en
+el historial y en los resúmenes diarios, incluyendo consumos parciales.
+
 ## 8. Estados de hardware recomendados
 
 ### Motor
@@ -586,10 +601,10 @@ báscula, sensores y extracción de JSON con ArduinoJson.
 - [ ] No se confunde la capacidad máxima con la comida disponible.
 - [ ] `TEST_CODE` coincide con `DEVICE_TEST_CODE`.
 - [ ] El ESP32 obtiene `feederId`.
-- [ ] El ESP32 envía telemetría cada 3-4 minutos.
+- [ ] El ESP32 envía telemetría cada minuto.
 - [ ] El ESP32 consulta comandos cada 1 minuto.
 - [ ] El motor se detiene ante error.
-- [ ] Cada comando termina en `completed`, `failed` o `expired`.
+- [ ] Cada comando termina mediante `dispense-result` o `expired`.
 - [ ] El firmware conserva `commandId` durante un reinicio o reintento.
 - [ ] El resultado usa `/device/:feederId/dispense-result`.
 - [ ] Los errores físicos incluyen `failureReason` y `hardwareErrorCode`.

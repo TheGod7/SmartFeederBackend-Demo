@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { apiData, apiList } from '../common/api-response.js';
 import { CreateFeedingEventDto } from './dto/create-feeding-event.dto.js';
 import { UpdateFeedingEventDto } from './dto/update-feeding-event.dto.js';
@@ -31,5 +31,10 @@ export class FeedingEventsController {
   @Get('consumption/summary')
   summary(@Param('feederId') feederId: string, @Query('from') from?: string, @Query('to') to?: string) {
     return this.service.summary(feederId, from, to).then((data) => apiData(Object.values(data)));
+  }
+
+  @Delete('feeding-events/history')
+  clearHistory(@Param('feederId') feederId: string) {
+    return this.service.clearHistory(feederId).then(apiData);
   }
 }

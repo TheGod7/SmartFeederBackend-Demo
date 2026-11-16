@@ -9,7 +9,23 @@ import { AlertsService } from '../alerts/alerts.service.js';
 
 @Injectable()
 export class DevicesService {
+  private static readonly PLATE_FOOD_THRESHOLD_GRAMS = 2;
+  private static readonly UNEATEN_FOOD_ALERT_DELAY_MS = 20 * 60 * 1000;
+  private static readonly MIN_VALID_DEVICE_TIME_MS = Date.parse('2020-01-01T00:00:00.000Z');
+  private static readonly MAX_DEVICE_CLOCK_SKEW_MS = 10 * 60 * 1000;
+  private static readonly RECENT_DISPENSE_WINDOW_MS = 6 * 60 * 60 * 1000;
   constructor(private readonly prisma: PrismaService, private readonly alerts: AlertsService) {}
+  private deviceReportedAt(value: string, now = new Date()) {
+    const reportedAt = new Date(value);
+    if (
+      !Number.isFinite(reportedAt.getTime()) ||
+      reportedAt.getTime() < DevicesService.MIN_VALID_DEVICE_TIME_MS ||
+      reportedAt.getTime() > now.getTime() + DevicesService.MAX_DEVICE_CLOCK_SKEW_MS
+    ) {
+      return now;
+    }
+    return reportedAt;
+  }
   private async feeder(id: string) {
     const feeder = await this.prisma.feeder.findUnique({ where: { id } });
     if (!feeder) throw new NotFoundException('Dispositivo no encontrado');
@@ -25,22 +41,172 @@ export class DevicesService {
     await this.prisma.feeder.update({ where: { id: feeder.id }, data: { isOnline: true, lastSeenAt: now } });
     return { connected: true, feederId: feeder.id, deviceCode: feeder.deviceCode, serverTime: now.toISOString() };
   }
+  async requestTelemetry(feederId: string) {
+    await this.feeder(feederId);
+    return this.prisma.deviceCommand.create({
+      data: { feederId, type: 'telemetry_request', payload: '{}' },
+    });
+  }
   async telemetry(feederId: string, dto: TelemetryDto) {
     await this.feeder(feederId);
-    const telemetry = await this.prisma.deviceTelemetry.create({ data: { feederId, ...dto, reportedAt: new Date(dto.reportedAt) } });
-    await this.prisma.feeder.update({ where: { id: feederId }, data: { isOnline: true, lastSeenAt: new Date(dto.reportedAt) } });
+    const reportedAt = this.deviceReportedAt(dto.reportedAt);
+    const latestStatus = await this.prisma.feederStatus.findFirst({
+      where: { feederId },
+      orderBy: { createdAt: 'desc' },
+    });
+    const telemetry = await this.prisma.deviceTelemetry.create({ data: { feederId, ...dto, reportedAt } });
+    await this.prisma.feeder.update({ where: { id: feederId }, data: { isOnline: true, lastSeenAt: reportedAt } });
     await this.prisma.feederStatus.create({
       data: {
         feederId,
-        plateFoodGrams: dto.plateFoodGrams,
-        hopperFoodPercent: dto.hopperFoodPercent,
-        motorStatus: dto.motorStatus,
-        sensorStatus: dto.sensorStatus,
-        firmwareVersion: dto.firmwareVersion,
-        lastSeenAt: new Date(dto.reportedAt),
+        plateFoodGrams: dto.plateFoodGrams ?? latestStatus?.plateFoodGrams,
+        petPresent: dto.petPresent ?? latestStatus?.petPresent,
+        petDistanceMm: dto.petDistanceMm ?? latestStatus?.petDistanceMm,
+        hopperFoodPercent: dto.hopperFoodPercent ?? latestStatus?.hopperFoodPercent,
+        hopperDistanceMm: dto.hopperDistanceMm ?? latestStatus?.hopperDistanceMm,
+        motorStatus: dto.motorStatus ?? latestStatus?.motorStatus,
+        sensorStatus: dto.sensorStatus ?? latestStatus?.sensorStatus,
+        firmwareVersion: dto.firmwareVersion ?? latestStatus?.firmwareVersion,
+        lastSeenAt: reportedAt,
         isOnline: true,
       },
     });
+    if (dto.petEvent === 'detected') {
+      const activeSession = await this.prisma.petPresenceSession.findFirst({
+        where: { feederId, status: 'active' },
+        orderBy: { detectedAt: 'desc' },
+      });
+      if (!activeSession) {
+        const latestDispense = await this.prisma.deviceCommand.findFirst({
+          where: {
+            feederId,
+            type: 'dispense',
+            status: 'completed',
+            completedAt: {
+              lte: reportedAt,
+              gte: new Date(reportedAt.getTime() - DevicesService.RECENT_DISPENSE_WINDOW_MS),
+            },
+          },
+          orderBy: { completedAt: 'desc' },
+        });
+        const feedingEventId = latestDispense?.feedingEventId ?? undefined;
+        await this.prisma.petPresenceSession.create({
+          data: {
+            feederId,
+            feedingEventId,
+            detectedAt: reportedAt,
+            foodBeforeGrams: dto.plateFoodGrams,
+            expectedGrams: latestDispense?.requestedGrams,
+            status: 'active',
+          },
+        });
+        await this.alerts.createAutomatic(feederId, {
+          type: 'pet_detected',
+          title: 'Mascota detectada',
+          detail: 'Se detectó una mascota frente al comedero.',
+          category: 'feeding',
+          metadata: { petEvent: dto.petEvent, foodBeforeGrams: dto.plateFoodGrams },
+        });
+      }
+    } else if (dto.petEvent === 'left') {
+      const activeSession = await this.prisma.petPresenceSession.findFirst({
+        where: { feederId, status: 'active' },
+        orderBy: { detectedAt: 'desc' },
+      });
+      if (activeSession) {
+        const consumedGrams = activeSession.foodBeforeGrams !== null && dto.plateFoodGrams !== undefined
+          ? Math.max(0, activeSession.foodBeforeGrams - dto.plateFoodGrams)
+          : null;
+        const completedSession = await this.prisma.$transaction(async (transaction) => {
+          const session = await transaction.petPresenceSession.update({
+            where: { id: activeSession.id },
+            data: {
+              leftAt: reportedAt,
+              foodAfterGrams: dto.plateFoodGrams,
+              consumedGrams,
+              status: 'completed',
+            },
+          });
+          if (session.feedingEventId && consumedGrams !== null) {
+            await transaction.feedingEvent.update({
+              where: { id: session.feedingEventId },
+              data: {
+                consumedGrams,
+                remainingGrams: dto.plateFoodGrams,
+              },
+            });
+          }
+          return session;
+        });
+        await this.alerts.createAutomatic(feederId, {
+          type: 'pet_left',
+          title: 'Mascota ya no está',
+          detail: consumedGrams === null
+            ? 'La mascota dejó de detectarse después de 20 segundos de ausencia confirmada.'
+            : `La mascota dejó de detectarse después de 20 segundos de ausencia confirmada. Consumo estimado: ${consumedGrams} g.`,
+          category: 'feeding',
+          metadata: {
+            petEvent: dto.petEvent,
+            sessionId: completedSession.id,
+            consumedGrams,
+            foodBeforeGrams: activeSession.foodBeforeGrams,
+            foodAfterGrams: dto.plateFoodGrams,
+          },
+        });
+        if (consumedGrams !== null && consumedGrams === 0) {
+          await this.alerts.createAutomatic(feederId, {
+            type: 'food_untouched',
+            title: 'Comida no consumida',
+            detail: 'La mascota estuvo frente al comedero, pero no se detectó consumo.',
+            category: 'feeding',
+            metadata: { sessionId: completedSession.id, consumedGrams },
+          });
+        } else if (
+          consumedGrams !== null &&
+          activeSession.expectedGrams !== null &&
+          consumedGrams < activeSession.expectedGrams
+        ) {
+          await this.alerts.createAutomatic(feederId, {
+            type: 'food_partial',
+            title: 'Comida consumida parcialmente',
+            detail: `La mascota consumió ${consumedGrams} g de ${activeSession.expectedGrams} g.`,
+            category: 'feeding',
+            metadata: {
+              sessionId: completedSession.id,
+              consumedGrams,
+              expectedGrams: activeSession.expectedGrams,
+            },
+          });
+        }
+      }
+    }
+    if (
+      dto.petEvent === undefined &&
+      dto.petPresent !== true &&
+      dto.plateFoodGrams !== undefined &&
+      dto.plateFoodGrams > DevicesService.PLATE_FOOD_THRESHOLD_GRAMS
+    ) {
+      const latestDispense = await this.prisma.deviceCommand.findFirst({
+        where: { feederId, type: 'dispense', status: 'completed' },
+        orderBy: { completedAt: 'desc' },
+      });
+      if (
+        latestDispense?.completedAt &&
+        Date.now() - latestDispense.completedAt.getTime() >= DevicesService.UNEATEN_FOOD_ALERT_DELAY_MS
+      ) {
+        await this.alerts.createAutomatic(feederId, {
+          type: 'food_untouched',
+          title: 'Comida sin recoger',
+          detail: 'Han pasado 20 minutos y todavía queda comida en el plato. El gato pudo saltarse esta comida.',
+          category: 'feeding',
+          metadata: {
+            commandId: latestDispense.id,
+            plateFoodGrams: dto.plateFoodGrams,
+          },
+          dedupeKey: latestDispense.id,
+        });
+      }
+    }
     if (dto.motorStatus === 'blocked' || dto.motorStatus === 'error') {
       await this.alerts.createAutomatic(feederId, {
         type: 'motor_error',
@@ -68,7 +234,56 @@ export class DevicesService {
     }
     return telemetry;
   }
-  pending(feederId: string) { return this.prisma.deviceCommand.findMany({ where: { feederId, status: { in: ['queued', 'sent', 'processing'] } }, orderBy: { createdAt: 'asc' } }); }
+  async pending(feederId: string) {
+    const commands = await this.prisma.deviceCommand.findMany({
+      where: { feederId, status: { in: ['queued', 'sent'] } },
+      orderBy: { createdAt: 'asc' },
+    });
+    const latestStatus = await this.prisma.feederStatus.findFirst({
+      where: { feederId },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (latestStatus?.plateFoodGrams === undefined || latestStatus.plateFoodGrams === null) {
+      return commands;
+    }
+
+    const readyCommands = [];
+    for (const command of commands) {
+      if (command.type !== 'dispense' || !['queued', 'sent'].includes(command.status)) {
+        readyCommands.push(command);
+        continue;
+      }
+      if (
+        command.requestedGrams === null ||
+        latestStatus.plateFoodGrams < command.requestedGrams
+      ) {
+        readyCommands.push(command);
+        continue;
+      }
+      const reason = `El plato tiene ${latestStatus.plateFoodGrams} g y el nuevo comando solicitaba ${command.requestedGrams} g; se omitió el dispensado.`;
+      await this.prisma.$transaction(async (transaction) => {
+        await transaction.deviceCommand.update({
+          where: { id: command.id },
+          data: { status: 'failed', failureReason: reason, completedAt: new Date() },
+        });
+        if (command.feedingEventId) {
+          await transaction.feedingEvent.update({
+            where: { id: command.feedingEventId },
+            data: { status: 'skipped', failureReason: reason, completedAt: new Date() },
+          });
+        }
+      });
+      await this.alerts.createAutomatic(feederId, {
+        type: 'food_skipped',
+        title: 'Dispensado omitido',
+        detail: 'El gato se saltó comida anterior y el plato ya tiene suficiente comida para la siguiente ración.',
+        category: 'feeding',
+        metadata: { commandId: command.id, plateFoodGrams: latestStatus?.plateFoodGrams },
+        dedupeKey: command.id,
+      });
+    }
+    return readyCommands;
+  }
   async commandStatus(commandId: string, dto: CommandStatusDto) {
     const existing = await this.prisma.deviceCommand.findUnique({ where: { id: commandId } });
     if (!existing) throw new NotFoundException('Comando no encontrado');
@@ -121,6 +336,9 @@ export class DevicesService {
         data: {
           feederId,
           plateFoodGrams: latestStatus?.plateFoodGrams,
+          petPresent: latestStatus?.petPresent,
+          petDistanceMm: latestStatus?.petDistanceMm,
+          hopperDistanceMm: latestStatus?.hopperDistanceMm,
           hopperFoodPercent: latestStatus?.hopperFoodPercent,
           lastDispensedGrams: dto.dispensedGrams,
           lastDispensedAt: dto.dispensedAt ? new Date(dto.dispensedAt) : now,
