@@ -9,15 +9,15 @@ does not use MQTT, WebSocket, JWT, or certificates.
 The firmware must follow this cycle:
 
 ```text
-Encender
-  -> conectar a Wi-Fi
+Power on
+  -> connect to Wi-Fi
   -> identifies itself with deviceCode + testCode
-  -> guardar feederId
-  -> enviar telemetría periódica
-  -> preguntar por comandos
-  -> ejecutar el comando
-  -> confirmar su resultado
-  -> enviar telemetría actualizada
+  -> store feederId
+  -> send periodic telemetry
+  -> poll for commands
+  -> execute the command
+  -> confirm its result
+  -> send updated telemetry
 ```
 
 The backend does not directly control the pins, motor, scale, or sensors. The
