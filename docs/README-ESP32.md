@@ -1,17 +1,17 @@
-# Manual del ESP32
+# ESP32 manual
 
-Guía práctica para programar el ESP32 contra Smart Feeder Backend en el modo
-demo actual. El ESP32 se comunica por Wi-Fi usando HTTP y JSON; no usa MQTT,
-WebSocket, JWT ni certificados.
+Practical guide for programming the ESP32 against Smart Feeder Backend in the
+current demo mode. The ESP32 communicates over Wi-Fi using HTTP and JSON; it
+does not use MQTT, WebSocket, JWT, or certificates.
 
-## 1. Qué debe hacer el ESP32
+## 1. What the ESP32 must do
 
-El firmware debe cumplir este ciclo:
+The firmware must follow this cycle:
 
 ```text
 Encender
   -> conectar a Wi-Fi
-  -> identificarse con deviceCode + testCode
+  -> identifies itself with deviceCode + testCode
   -> guardar feederId
   -> enviar telemetría periódica
   -> preguntar por comandos
@@ -20,20 +20,20 @@ Encender
   -> enviar telemetría actualizada
 ```
 
-El backend no controla directamente los pines, el motor, la báscula ni los
-sensores. El ESP32 es responsable de:
+The backend does not directly control the pins, motor, scale, or sensors. The
+ESP32 is responsible for:
 
-- Conectarse y reconectarse al Wi-Fi.
-- Activar el motor.
-- Detener el motor cuando alcance los gramos deseados.
-- Leer o estimar gramos en plato y depósito.
-- Reportar estados del motor y sensores.
-- Ejecutar comandos una sola vez.
-- Informar si un comando terminó correctamente.
+- Connecting to and reconnecting to Wi-Fi.
+- Activating the motor.
+- Stopping the motor when it reaches the desired grams.
+- Reading or estimating grams on the plate and in the hopper.
+- Reporting motor and sensor statuses.
+- Executing commands only once.
+- Reporting whether a command finished successfully.
 
-## 1.1 Endpoints que usa el ESP32
+## 1.1 Endpoints used by the ESP32
 
-El ESP32 solo debe comunicarse con estos endpoints:
+The ESP32 should communicate only with these endpoints:
 
 ```text
 POST  /api/v1/device/connect
@@ -43,23 +43,23 @@ PATCH /api/v1/device/commands/:commandId
 POST  /api/v1/feeders/:feederId/feeding-events
 ```
 
-Cada endpoint tiene un momento distinto de uso:
+Each endpoint is used at a different time:
 
-| Endpoint | Cuándo se usa | Frecuencia |
+| Endpoint | When it is used | Frequency |
 |---|---|---|
-| `POST /device/connect` | Al encender y después de reconectar Wi-Fi | Una vez por conexión |
-| `POST /device/:feederId/telemetry` | Para reportar sensores y estado | Cada minuto, después de eventos y solicitudes puntuales |
-| `GET /device/:feederId/commands/pending` | Para recibir dispensaciones pendientes | Cada 1 minuto |
-| `PATCH /device/commands/:commandId` | Al recibir, iniciar y terminar un comando | Por comando |
-| `POST /feeders/:feederId/feeding-events` | Al finalizar una dispensación | Por dispensación |
+| `POST /device/connect` | On startup and after reconnecting to Wi-Fi | Once per connection |
+| `POST /device/:feederId/telemetry` | To report sensors and status | Every minute, after events, and for one-off requests |
+| `GET /device/:feederId/commands/pending` | To receive pending dispensing commands | Every 1 minute |
+| `PATCH /device/commands/:commandId` | When receiving, starting, and finishing a command | Per command |
+| `POST /feeders/:feederId/feeding-events` | When dispensing finishes | Per dispensing operation |
 
-El ESP32 no debe crear comederos, mascotas, alimentos, horarios o alertas.
-Esos recursos los administra el frontend o el backend.
+The ESP32 must not create feeders, pets, food, schedules, or alerts.
+Those resources are managed by the frontend or backend.
 
-El backend crea automáticamente el comando cuando un horario coincide. El
-ESP32 no calcula ni dispara horarios; solo recoge y ejecuta los comandos.
+The backend automatically creates a command when a schedule matches. The ESP32
+does not calculate or trigger schedules; it only retrieves and executes commands.
 
-## 2. Datos que debes configurar en el firmware
+## 2. Data to configure in the firmware
 
 ```cpp
 const char* WIFI_SSID = "MI_WIFI";
@@ -71,26 +71,26 @@ const char* TEST_CODE = "SMART-FEEDER-TEST";
 
 ### `API_BASE`
 
-Debe ser una dirección que el ESP32 pueda alcanzar. No uses `localhost`.
+It must be an address reachable by the ESP32. Do not use `localhost`.
 
-Correcto dentro de una red local:
+Correct on a local network:
 
 ```text
 http://192.168.1.50:3000/api/v1
 ```
 
-Incorrecto:
+Incorrect:
 
 ```text
 http://localhost:3000/api/v1
 ```
 
-NestJS debe escuchar en `0.0.0.0` y el firewall debe permitir el puerto 3000.
+NestJS must listen on `0.0.0.0`, and the firewall must allow port 3000.
 
 ### `DEVICE_CODE`
 
-Es el código único del comedero creado por el frontend o por una llamada
-administrativa:
+This is the feeder's unique code, created by the frontend or by an
+administrative call:
 
 ```http
 POST /api/v1/feeders
@@ -104,27 +104,27 @@ POST /api/v1/feeders
 }
 ```
 
-El código debe coincidir exactamente, incluyendo mayúsculas y guiones.
+The code must match exactly, including capitalization and hyphens.
 
 ### `TEST_CODE`
 
-Es el código compartido de la demo. Por defecto:
+This is the demo's shared code. By default:
 
 ```text
 SMART-FEEDER-TEST
 ```
 
-Puede cambiarse en el backend:
+It can be changed in the backend:
 
 ```env
 DEVICE_TEST_CODE=MI-CODIGO-DE-DEMO
 ```
 
-### Medición infrarroja del depósito
+### Infrared hopper measurement
 
-El ESP32 debe reportar el nivel estimado del contenedor como porcentaje en
-`hopperFoodPercent`. El sensor infrarrojo debe convertir su lectura de nivel a
-un valor entre `0` y `100`:
+The ESP32 must report the estimated container level as a percentage in
+`hopperFoodPercent`. The infrared sensor must convert its level reading to a
+value between `0` and `100`:
 
 ```text
 100 = depósito lleno
@@ -132,27 +132,27 @@ un valor entre `0` y `100`:
 0   = depósito vacío
 ```
 
-Si el sensor todavía no tiene una lectura válida, debe omitir el campo. No debe
-enviar `0` para representar “sin lectura”; `0` significa que el contenedor fue
-medido como vacío.
+If the sensor does not yet have a valid reading, omit the field. Do not send
+`0` to represent "no reading"; `0` means that the container was measured as
+empty.
 
-## 3. Arranque y conexión
+## 3. Startup and connection
 
-### 3.1 Conectar Wi-Fi
+### 3.1 Connect Wi-Fi
 
-El ESP32 intenta conectar al iniciar. Si pierde la conexión, debe llamar a
-`WiFi.reconnect()` y no hacer peticiones HTTP hasta recuperar
+The ESP32 attempts to connect at startup. If it loses the connection, it must
+call `WiFi.reconnect()` and make no HTTP requests until it restores
 `WL_CONNECTED`.
 
-Recomendación:
+Recommendation:
 
-- Esperar hasta 20 segundos al inicio.
-- Reintentar cada 5 segundos.
-- No bloquear indefinidamente el programa.
+- Wait up to 20 seconds at startup.
+- Retry every 5 seconds.
+- Do not block the program indefinitely.
 
 ### 3.2 Handshake
 
-Cuando el Wi-Fi ya está conectado, enviar una sola petición:
+When Wi-Fi is connected, send one request:
 
 ```http
 POST /api/v1/device/connect
@@ -166,7 +166,7 @@ Content-Type: application/json
 }
 ```
 
-Respuesta `200`:
+Response `200`:
 
 ```json
 {
@@ -179,38 +179,37 @@ Respuesta `200`:
 }
 ```
 
-El ESP32 debe extraer y guardar:
+The ESP32 must extract and store:
 
 ```text
 data.feederId
 ```
 
-Ese valor se usa en todas las peticiones posteriores. Puedes guardarlo en
-`Preferences` para no depender de una configuración manual cada vez que
-reinicia.
+That value is used in all subsequent requests. You can store it in
+`Preferences` to avoid relying on manual configuration after each restart.
 
-El handshake marca el comedero como conectado y actualiza `lastSeenAt`, pero
-no sustituye la telemetría periódica.
+The handshake marks the feeder as connected and updates `lastSeenAt`, but it
+does not replace periodic telemetry.
 
-## 4. Telemetría: qué debe enviar y cada cuánto
+## 4. Telemetry: what to send and how often
 
-Enviar cada **1 minuto** es el valor recomendado para la demo. También
-enviar inmediatamente después de:
+Sending every **1 minute** is the recommended value for the demo. Also send
+immediately after:
 
-- Encender el ESP32.
-- Reconectar el Wi-Fi.
-- Terminar una dispensación.
-- Detectar un error de motor.
-- Detectar un error de sensor.
+- Powering on the ESP32.
+- Reconnecting to Wi-Fi.
+- Finishing a dispensing operation.
+- Detecting a motor error.
+- Detecting a sensor error.
 
-Petición:
+Request:
 
 ```http
 POST /api/v1/device/:feederId/telemetry
 Content-Type: application/json
 ```
 
-Ejemplo:
+Example:
 
 ```json
 {
@@ -224,19 +223,19 @@ Ejemplo:
 }
 ```
 
-### Campos
+### Fields
 
-| Campo | Tipo | Obligatorio | Uso |
+| Field | Type | Required | Use |
 |---|---|---:|---|
-| `reportedAt` | string ISO 8601 | Sí | Momento de la lectura en UTC |
-| `plateFoodGrams` | entero `>= 0` | No | Comida actualmente en el plato |
-| `hopperFoodPercent` | entero `0..100` | No | Porcentaje medido del contenedor |
-| `motorStatus` | string | No | `ready`, `dispensing`, `blocked` o `error` |
-| `sensorStatus` | string | No | `ready`, `error` o `not_calibrated` |
-| `wifiSignal` | entero entre `-120` y `0` | No | RSSI en dBm |
-| `firmwareVersion` | string | No | Versión instalada |
+| `reportedAt` | string ISO 8601 | Yes | Reading time in UTC |
+| `plateFoodGrams` | integer `>= 0` | No | Food currently on the plate |
+| `hopperFoodPercent` | integer `0..100` | No | Measured container percentage |
+| `motorStatus` | string | No | `ready`, `dispensing`, `blocked`, or `error` |
+| `sensorStatus` | string | No | `ready`, `error`, or `not_calibrated` |
+| `wifiSignal` | integer between `-120` and `0` | No | RSSI in dBm |
+| `firmwareVersion` | string | No | Installed version |
 
-El backend responde con el registro guardado:
+The backend responds with the saved record:
 
 ```json
 {
@@ -254,37 +253,35 @@ El backend responde con el registro guardado:
 }
 ```
 
-Al recibir telemetría, el backend:
+When telemetry is received, the backend:
 
-1. Guarda un registro en `DeviceTelemetry`.
-2. Actualiza `Feeder.isOnline = true`.
-3. Actualiza `Feeder.lastSeenAt`.
-4. Crea una fotografía histórica en `FeederStatus`.
+1. Stores a record in `DeviceTelemetry`.
+2. Updates `Feeder.isOnline = true`.
+3. Updates `Feeder.lastSeenAt`.
+4. Creates a historical snapshot in `FeederStatus`.
 
-La presencia se confirma en el firmware con dos lecturas ultrasónicas válidas
-consecutivas. Las lecturas inválidas no cierran una sesión; `petEvent: "left"`
-se envía después de 20 segundos sin detección válida, cinco lecturas de
-ausencia y una espera de estabilización del HX711. La espera no bloquea el
-ciclo principal del ESP32.
+Presence is confirmed in the firmware with two consecutive valid ultrasonic
+readings. Invalid readings do not close a session; `petEvent: "left"` is sent
+after 20 seconds without valid detection, five absence readings, and an HX711
+stabilization wait. The wait does not block the ESP32's main loop.
 
-El frontend puede solicitar una lectura puntual mediante
-`POST /device/:feederId/telemetry-request`. El backend crea un comando
-`telemetry_request`; el ESP32 lo consume en su siguiente consulta de comandos,
-envía la telemetría y marca el comando como completado.
+The frontend can request a one-off reading through
+`POST /device/:feederId/telemetry-request`. The backend creates a
+`telemetry_request` command; the ESP32 consumes it during its next command
+poll, sends telemetry, and marks the command as completed.
 
-El backend considera offline un comedero cuya última telemetría tenga más de
-5 minutos. El frontend debe aplicar la misma regla al mostrar el estado, para
-que no muestre como disponible una respuesta almacenada o desactualizada.
+The backend considers a feeder offline when its latest telemetry is more than
+5 minutes old. The frontend must apply the same rule when displaying status so
+that a stored or stale response is not shown as available.
 
-Antes de la primera telemetría, el backend devuelve `null` para las lecturas
-del plato y del contenedor. `plateFoodGrams` sigue siendo gramos y
-`hopperFoodPercent` es porcentaje. El ESP32 debe omitir cualquiera de los dos
-si su sensor no está disponible; no debe mandar `0` para representar una
-lectura desconocida.
+Before the first telemetry, the backend returns `null` for plate and container
+readings. `plateFoodGrams` remains in grams and `hopperFoodPercent` is a
+percentage. The ESP32 must omit either field if its sensor is unavailable; it
+must not send `0` to represent an unknown reading.
 
-## 5. Comandos: cómo recibe instrucciones el ESP32
+## 5. Commands: how the ESP32 receives instructions
 
-El usuario solicita una dispensación desde:
+The user requests dispensing through:
 
 ```http
 POST /api/v1/feeders/:feederId/actions/dispense
@@ -297,7 +294,7 @@ Content-Type: application/json
 }
 ```
 
-El backend guarda un `DeviceCommand`:
+The backend stores a `DeviceCommand`:
 
 ```json
 {
@@ -311,16 +308,16 @@ El backend guarda un `DeviceCommand`:
 }
 ```
 
-El ESP32 no recibe la orden automáticamente. Debe hacer polling:
+The ESP32 does not receive the command automatically. It must poll:
 
 ```http
 GET /api/v1/device/:feederId/commands/pending
 ```
 
-Se recomienda consultar cada **1 minuto** para reducir la cantidad de
-solicitudes al backend.
+Polling every **1 minute** is recommended to reduce the number of requests to
+the backend.
 
-Respuesta:
+Response:
 
 ```json
 {
@@ -343,18 +340,18 @@ Respuesta:
 }
 ```
 
-### Ejecución obligatoria de un comando
+### Required command execution
 
-Al encontrar un comando:
+When a command is found:
 
-1. Guardar temporalmente el `commandId`.
-2. Cambiarlo a `processing`.
-3. Activar el motor.
-4. Detenerlo cuando se alcancen los gramos objetivo.
-5. Enviar el resultado atómico a `dispense-result`.
-6. Enviar telemetría nueva.
+1. Temporarily store the `commandId`.
+2. Change it to `processing`.
+3. Activate the motor.
+4. Stop it when the target grams are reached.
+5. Send the atomic result to `dispense-result`.
+6. Send new telemetry.
 
-Para marcarlo como procesando:
+To mark it as processing:
 
 ```http
 PATCH /api/v1/device/commands/:commandId
@@ -367,13 +364,13 @@ Content-Type: application/json
 }
 ```
 
-Para finalizar, el firmware debe preferir el resultado atómico:
+To finish, the firmware should prefer the atomic result:
 
 ```http
 POST /api/v1/device/:feederId/dispense-result
 ```
 
-Para informar un fallo:
+To report a failure:
 
 ```json
 {
@@ -385,28 +382,28 @@ Para informar un fallo:
 Estados usados:
 
 ```text
-queued       El backend espera que el ESP lo recoja.
-sent         El ESP informa que lo recibió.
-processing   El motor está ejecutándose.
-completed    La operación terminó correctamente.
-failed       La operación falló.
-expired      El dispositivo no lo ejecutó a tiempo.
+queued       The backend is waiting for the ESP32 to pick it up.
+sent         The ESP32 reports that it received it.
+processing   The motor is running.
+completed    The operation finished successfully.
+failed       The operation failed.
+expired      The device did not execute it in time.
 ```
 
-Los comandos `processing` no se vuelven a entregar al ESP32. Esto evita que
-un reinicio durante una dispensación repita el movimiento; el scheduler del
-backend marcará como fallido un comando `processing` que supere su timeout.
+Commands in `processing` are not delivered to the ESP32 again. This prevents a
+restart during dispensing from repeating the movement; the backend scheduler
+marks a `processing` command that exceeds its timeout as failed.
 
-## 6. Resultado atómico de la dispensación
+## 6. Atomic dispensing result
 
-Después de ejecutar el motor, el endpoint recomendado es:
+After running the motor, the recommended endpoint is:
 
 ```http
 POST /api/v1/device/:feederId/dispense-result
 Content-Type: application/json
 ```
 
-Resultado correcto:
+Successful result:
 
 ```json
 {
@@ -420,7 +417,7 @@ Resultado correcto:
 }
 ```
 
-Resultado con error físico:
+Result with a physical error:
 
 ```json
 {
@@ -435,26 +432,26 @@ Resultado con error físico:
 }
 ```
 
-El ESP32 debe reportar, cuando estén disponibles:
+The ESP32 should report the following when available:
 
-| Campo | Uso |
+| Field | Use |
 |---|---|
-| `commandId` | Identifica la orden recogida |
-| `feedingEventId` | Relaciona el resultado con el horario |
-| `startedAt` | Momento en que arrancó el motor |
-| `dispensedAt` | Momento en que terminó de entregar alimento |
-| `completedAt` | Momento en que terminó la operación |
-| `dispensedGrams` | Gramos realmente entregados |
-| `status` | `completed`, `partial`, `failed` o `skipped` |
-| `failureReason` | Explicación legible del fallo |
-| `hardwareErrorCode` | Código estable del firmware, por ejemplo `MOTOR_BLOCKED` |
+| `commandId` | Identifies the retrieved command |
+| `feedingEventId` | Links the result to the schedule |
+| `startedAt` | Time when the motor started |
+| `dispensedAt` | Time when food delivery finished |
+| `completedAt` | Time when the operation finished |
+| `dispensedGrams` | Grams actually delivered |
+| `status` | `completed`, `partial`, `failed`, or `skipped` |
+| `failureReason` | Readable explanation of the failure |
+| `hardwareErrorCode` | Stable firmware code, for example `MOTOR_BLOCKED` |
 
-El backend transforma `partial` en un comando terminado correctamente, pero
-el evento queda como `partial`. Para `failed`, el comando queda `failed`. El
-resultado se puede reenviar si se pierde la respuesta HTTP: el backend
-reconoce el comando ya terminado y no duplica el evento.
+The backend transforms `partial` into a successfully finished command, while
+the event remains `partial`. For `failed`, the command remains `failed`. The
+result can be resent if the HTTP response is lost: the backend recognizes the
+already completed command and does not duplicate the event.
 
-Los códigos recomendados son:
+Recommended codes are:
 
 ```text
 MOTOR_BLOCKED
@@ -465,12 +462,11 @@ LOW_POWER
 UNKNOWN
 ```
 
-## 7. Evento de alimentación
+## 7. Feeding event
 
-El evento registra qué ocurrió, mientras que la telemetría registra el estado
-del dispositivo.
+The event records what happened, while telemetry records the device status.
 
-Después de una dispensación, el ESP32 puede informar:
+After dispensing, the ESP32 can report:
 
 ```http
 POST /api/v1/feeders/:feederId/feeding-events
@@ -489,24 +485,25 @@ Content-Type: application/json
 }
 ```
 
-Estados recomendados:
+Recommended statuses:
 
 ```text
 scheduled, dispensing, completed, partial, skipped, failed, cancelled
 ```
 
-El ESP32 no necesita calcular `consumedGrams` durante la dispensación. Ese
-valor representa cuánto desapareció del plato y debe omitirse si todavía no
-existe una lectura posterior. No debe enviarse `0` para representar un valor
-desconocido.
+The ESP32 does not need to calculate `consumedGrams` during dispensing. This
+value represents how much food disappeared from the plate and should be omitted
+if a later reading is not yet available. It must not send `0` to represent an
+unknown value.
 
-Cuando el ESP32 envía `petEvent: "detected"`, el backend guarda el peso previo
-en `PetPresenceSession`. Al recibir `petEvent: "left"` guarda el peso posterior,
-calcula `foodBeforeGrams - foodAfterGrams` y copia el resultado en
-`FeedingEvent.consumedGrams` y `remainingGrams`. Por eso el consumo aparece en
-el historial y en los resúmenes diarios, incluyendo consumos parciales.
+When the ESP32 sends `petEvent: "detected"`, the backend stores the previous
+weight in `PetPresenceSession`. When it receives `petEvent: "left"`, it stores
+the later weight, calculates `foodBeforeGrams - foodAfterGrams`, and copies the
+result into `FeedingEvent.consumedGrams` and `remainingGrams`. This is why
+consumption appears in history and daily summaries, including partial
+consumption.
 
-## 8. Estados de hardware recomendados
+## 8. Recommended hardware statuses
 
 ### Motor
 
@@ -525,46 +522,47 @@ error           Lectura inválida o sensor desconectado.
 not_calibrated  Aún no está calibrado.
 ```
 
-## 9. Reintentos y desconexiones
+## 9. Retries and disconnections
 
-Para cualquier petición HTTP:
+For any HTTP request:
 
-- Timeout recomendado: 5 segundos.
-- Reintento 1: después de 2 segundos.
-- Reintento 2: después de 5 segundos.
-- Después, volver al ciclo normal.
+- Recommended timeout: 5 seconds.
+- Retry 1: after 2 seconds.
+- Retry 2: after 5 seconds.
+- Then return to the normal cycle.
 
-No repitas una dispensación automáticamente si no sabes si el servidor recibió
-la confirmación. Primero consulta los comandos pendientes y revisa el estado.
+Do not automatically repeat a dispensing operation if you do not know whether
+the server received the confirmation. First query pending commands and check
+the status.
 
-Si el Wi-Fi se cae:
+If Wi-Fi goes down:
 
-1. Detén nuevas peticiones.
-2. Si el motor está activo, llévalo a un estado seguro.
-3. Reconecta Wi-Fi.
-4. Ejecuta nuevamente el handshake.
-5. Envía telemetría.
-6. Reanuda el polling.
+1. Stop new requests.
+2. If the motor is active, bring it to a safe state.
+3. Reconnect to Wi-Fi.
+4. Perform the handshake again.
+5. Send telemetry.
+6. Resume polling.
 
-## 10. Recuperación después de reiniciar
+## 10. Recovery after restart
 
-Después de reiniciar, el ESP32 debe:
+After restarting, the ESP32 must:
 
-1. Conectarse al Wi-Fi.
-2. Ejecutar nuevamente el handshake.
-3. Enviar una telemetría.
-4. Consultar `/device/:feederId/commands/pending`.
-5. Para cada comando pendiente, confirmar `sent` y revisar si el hardware ya
-   ejecutó una orden guardada localmente.
-6. Reenviar el resultado usando el mismo `commandId`.
+1. Connect to Wi-Fi.
+2. Perform the handshake again.
+3. Send telemetry.
+4. Query `/device/:feederId/commands/pending`.
+5. For each pending command, confirm `sent` and check whether the hardware has
+   already executed a locally stored command.
+6. Resend the result using the same `commandId`.
 
-No debe crear otra orden si encuentra un comando pendiente. Si el backend ya
-lo marcó `completed`, `failed` o `expired`, la respuesta repetida es
-idempotente y no debe activar el motor nuevamente.
+Do not create another command when a pending command is found. If the backend
+already marked it `completed`, `failed`, or `expired`, the repeated response is
+idempotent and must not activate the motor again.
 
-## 11. Implementación mínima de Arduino
+## 11. Minimal Arduino implementation
 
-Librerías:
+Libraries:
 
 ```text
 WiFi
@@ -573,7 +571,7 @@ ArduinoJson
 Preferences
 ```
 
-El firmware debe tener, como mínimo, estas funciones:
+The firmware must have, at minimum, these functions:
 
 ```cpp
 bool connectWifi();
@@ -581,50 +579,50 @@ bool connectDevice();
 bool sendTelemetry();
 bool pollCommands();
 bool updateCommand(String commandId, String status, String reason);
-bool sendDispenseResult(/* datos de la ración */);
+bool sendDispenseResult(/* portion data */);
 void runDispense(int grams);
 ```
 
-El ejemplo completo de HTTP y JSON está en la sección equivalente de la guía
-anterior; para una implementación real debes agregar control de motor,
-báscula, sensores y extracción de JSON con ArduinoJson.
+The complete HTTP and JSON example is in the equivalent section of the
+previous guide; for a real implementation, add motor, scale, and sensor
+control, as well as JSON extraction with ArduinoJson.
 
-## 12. Checklist antes de probar
+## 12. Pre-test checklist
 
-- [ ] El backend está iniciado.
-- [ ] El backend escucha en `0.0.0.0`.
-- [ ] El ESP32 y la computadora están en la misma red.
-- [ ] El firewall permite el puerto 3000.
-- [ ] Existe un feeder con `deviceCode`.
-- [ ] La capacidad del depósito está configurada como 5000 gramos si aplica al
+- [ ] The backend is running.
+- [ ] The backend listens on `0.0.0.0`.
+- [ ] The ESP32 and computer are on the same network.
+- [ ] The firewall allows port 3000.
+- [ ] A feeder with `deviceCode` exists.
+- [ ] Hopper capacity is configured as 5000 grams if required by the
       hardware.
-- [ ] No se confunde la capacidad máxima con la comida disponible.
-- [ ] `TEST_CODE` coincide con `DEVICE_TEST_CODE`.
-- [ ] El ESP32 obtiene `feederId`.
-- [ ] El ESP32 envía telemetría cada minuto.
-- [ ] El ESP32 consulta comandos cada 1 minuto.
-- [ ] El motor se detiene ante error.
-- [ ] Cada comando termina mediante `dispense-result` o `expired`.
-- [ ] El firmware conserva `commandId` durante un reinicio o reintento.
-- [ ] El resultado usa `/device/:feederId/dispense-result`.
-- [ ] Los errores físicos incluyen `failureReason` y `hardwareErrorCode`.
+- [ ] Maximum capacity is not confused with available food.
+- [ ] `TEST_CODE` matches `DEVICE_TEST_CODE`.
+- [ ] The ESP32 obtains `feederId`.
+- [ ] The ESP32 sends telemetry every minute.
+- [ ] The ESP32 polls commands every 1 minute.
+- [ ] The motor stops when an error occurs.
+- [ ] Every command ends through `dispense-result` or `expired`.
+- [ ] The firmware preserves `commandId` across a restart or retry.
+- [ ] The result uses `/device/:feederId/dispense-result`.
+- [ ] Physical errors include `failureReason` and `hardwareErrorCode`.
 
-## 13. Timeouts del backend
+## 13. Backend timeouts
 
-El backend expira automáticamente:
+The backend automatically expires:
 
 ```text
-queued      después de 2 minutos sin ser recogido.
-sent        después de 1 minuto sin iniciar.
-processing  después de 5 minutos sin terminar.
+queued      after 2 minutes without being picked up.
+sent        after 1 minute without starting.
+processing  after 5 minutes without finishing.
 ```
 
-Cuando vence un comando, el evento queda `skipped` para `queued`/`sent` o
-`failed` para `processing`, y se crea una alerta. El ESP32 debe tratar un
-comando expirado como no ejecutable.
+When a command expires, the event becomes `skipped` for `queued`/`sent` or
+`failed` for `processing`, and an alert is created. The ESP32 must treat an
+expired command as non-executable.
 
-## 14. Limitaciones del modo demo
+## 14. Demo mode limitations
 
-Este flujo no verifica identidad real. Quien conozca `deviceCode` y
-`testCode` puede operar el comedero. Es apropiado para una demo en red local,
-no para Internet o producción.
+This flow does not verify real identity. Anyone who knows `deviceCode` and
+`testCode` can operate the feeder. It is appropriate for a local-network demo,
+not for the Internet or production.

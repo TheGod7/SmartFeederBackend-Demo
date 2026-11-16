@@ -1,9 +1,9 @@
-# Referencia técnica de la API
+# API technical reference
 
-Documento de integración para frontend, backend y firmware. Describe lo que
-realmente expone el código actual.
+Integration document for the frontend, backend, and firmware. It describes what
+the current code actually exposes.
 
-## 1. Datos generales
+## 1. General information
 
 Base URL:
 
@@ -11,28 +11,28 @@ Base URL:
 http://HOST:3000/api/v1
 ```
 
-Ejemplo:
+Example:
 
 ```text
 http://192.168.1.50:3000/api/v1
 ```
 
-Métodos usados:
+Methods used:
 
 ```text
 GET, POST, PATCH, DELETE
 ```
 
-Content-Type para cuerpos:
+Content-Type for request bodies:
 
 ```http
 Content-Type: application/json
 ```
 
-No se requiere `Authorization` en el modo actual. El módulo JWT existe en
-`src/auth`, pero no se importa desde `AppModule`.
+`Authorization` is not required in the current mode. The JWT module exists in
+`src/auth`, but it is not imported by `AppModule`.
 
-## 2. Formato de respuestas
+## 2. Response format
 
 ### Objeto
 
@@ -56,9 +56,9 @@ No se requiere `Authorization` en el modo actual. El módulo JWT existe en
 }
 ```
 
-### Errores
+### Errors
 
-NestJS devuelve el error HTTP estándar:
+NestJS returns the standard HTTP error:
 
 ```json
 {
@@ -68,7 +68,7 @@ NestJS devuelve el error HTTP estándar:
 }
 ```
 
-Los errores comunes son:
+Common errors are:
 
 ```text
 400  Validación o regla de negocio.
@@ -76,7 +76,7 @@ Los errores comunes son:
 500  Error no controlado del servidor.
 ```
 
-## 3. Tipos compartidos
+## 3. Shared types
 
 ### Feeder
 
@@ -182,11 +182,11 @@ type FeederStatus = {
 };
 ```
 
-## 4. Mascotas
+## 4. Pets
 
 ### `GET /pets`
 
-Devuelve las mascotas del usuario demo.
+Returns the demo user's pets.
 
 ### `POST /pets`
 
@@ -203,7 +203,7 @@ Request:
 }
 ```
 
-Validaciones:
+Validation:
 
 ```text
 name: texto.
@@ -215,17 +215,17 @@ weightGrams: entero mayor que 0.
 
 ### `PATCH /pets/:petId`
 
-Acepta los campos modificables de creación.
+Accepts the editable fields from creation.
 
 ### `DELETE /pets/:petId`
 
-Elimina la mascota si pertenece al usuario demo.
+Deletes the pet if it belongs to the demo user.
 
-## 5. Comederos
+## 5. Feeders
 
 ### `GET /feeders`
 
-Devuelve todos los comederos del usuario demo.
+Returns all feeders belonging to the demo user.
 
 ### `POST /feeders`
 
@@ -240,21 +240,20 @@ Request:
 }
 ```
 
-`deviceCode` es único en la base de datos.
+`deviceCode` is unique in the database.
 
-Este endpoint se usa para registrar el comedero antes de conectar el ESP32.
-No lo llama el firmware. Para el comedero demo, la capacidad máxima del
-depósito es de 5000 gramos; esa configuración no representa comida cargada.
-El registro se crea sin mascota, alimento seleccionado, horarios ni lecturas.
+This endpoint registers the feeder before the ESP32 connects. The firmware does
+not call it. For the demo feeder, the hopper's maximum capacity is 5000 grams;
+that setting does not represent loaded food. The record is created without a
+pet, selected food, schedules, or readings.
 
 ### `GET /feeders/:feederId`
 
 ### `GET /feeders/:feederId/status`
 
-Devuelve el último `FeederStatus`. `lastDispensedGrams` y `lastDispensedAt`
-se completan con el último evento de alimentación que tenga gramos
-dispensados. Si todavía no hay telemetría, devuelve
-valores iniciales:
+Returns the latest `FeederStatus`. `lastDispensedGrams` and `lastDispensedAt`
+are populated from the latest feeding event with dispensed grams. If no
+telemetry exists yet, it returns these initial values:
 
 ```json
 {
@@ -274,7 +273,7 @@ valores iniciales:
 
 ### `GET /feeders/:feederId/dashboard`
 
-Devuelve:
+Returns:
 
 ```text
 feeder
@@ -285,16 +284,15 @@ selectedFood
 recentConsumption
 ```
 
-Actualmente `alerts`, `selectedFood` y `recentConsumption` son placeholders
-vacíos o `null`; sus endpoints especializados sí están implementados.
+Currently, `alerts`, `selectedFood`, and `recentConsumption` are empty or `null`
+placeholders; their specialized endpoints are implemented.
 
-Cuando no existe telemetría del ESP32, las cantidades de plato, depósito y
-capacidad son `null`, salvo que la capacidad máxima haya sido configurada por
-el backend. `plateFoodGrams` permanece en gramos y `hopperFoodPercent` se
-reporta entre `0` y `100` usando el sensor infrarrojo. Ambos permanecen en
-`null` hasta recibir una lectura válida. `0` en `hopperFoodPercent` significa
-contenedor medido como vacío, no “sin lectura”. El porcentaje proviene del
-sensor infrarrojo integrado en el depósito.
+When no ESP32 telemetry exists, plate, hopper, and capacity amounts are `null`,
+unless the backend has configured the maximum capacity. `plateFoodGrams`
+remains in grams and `hopperFoodPercent` is reported from `0` to `100` using
+the infrared sensor. Both remain `null` until a valid reading is received.
+`0` in `hopperFoodPercent` means the container was measured as empty, not "no
+reading." The percentage comes from the infrared sensor integrated into the hopper.
 
 ### `POST /feeders/:feederId/actions/dispense`
 
@@ -306,10 +304,10 @@ Request:
 }
 ```
 
-`grams` debe ser un entero entre 1 y 1000. El backend guarda un comando
-`dispense` con estado `queued`.
+`grams` must be an integer between 1 and 1000. The backend stores a `dispense`
+command with `queued` status.
 
-## 6. Horarios
+## 6. Schedules
 
 ### `GET /feeders/:feederId/schedules`
 
@@ -327,14 +325,14 @@ Request:
 }
 ```
 
-El formato de `time` debe ser `HH:mm`. No se permiten dos horarios activos a
-la misma hora para el mismo comedero.
+The `time` format must be `HH:mm`. Two active schedules at the same time are
+not allowed for the same feeder.
 
 ### `GET /schedules/:scheduleId`
 
 ### `PATCH /schedules/:scheduleId`
 
-Acepta cualquier subconjunto de:
+Accepts any subset of:
 
 ```json
 {
@@ -348,30 +346,28 @@ Acepta cualquier subconjunto de:
 
 ### `DELETE /schedules/:scheduleId`
 
-### Ejecución automática
+### Automatic execution
 
-El backend revisa los horarios activos cada 15 segundos. Cuando la hora local
-coincide con `time` y el día está incluido en `daysOfWeek`, crea dentro de una
-transacción:
+The backend checks active schedules every 15 seconds. When the local time
+matches `time` and the day is included in `daysOfWeek`, it creates the following
+in a transaction:
 
 ```text
 FeedingEvent: scheduled
 DeviceCommand: queued
 ```
 
-El comando queda asociado al evento mediante `feedingEventId`. La clave
-`scheduleId:fecha-localThora` evita duplicar una ejecución aunque el ciclo se
-repita o la aplicación se reinicie dentro del mismo minuto. El scheduler usa
-el `timezone` del horario y, si no existe, el del comedero.
+The command is associated with the event through `feedingEventId`. The
+`scheduleId:local-dateThour` key prevents duplicate execution if the cycle
+repeats or the application restarts within the same minute. The scheduler uses
+the schedule's `timezone`, or the feeder's timezone if none is set.
 
-No hay un proceso que ejecute el motor desde NestJS. El ESP32 recoge el
-`DeviceCommand` mediante polling.
+NestJS does not run the motor. The ESP32 retrieves the `DeviceCommand` by polling.
 
-## 7. Handshake del dispositivo
+## 7. Device handshake
 
-Estos cuatro endpoints son los que usa directamente el ESP32. El registro del
-comedero y la configuración de capacidad ocurren antes, desde el frontend o
-el backend.
+These four endpoints are used directly by the ESP32. The feeder record and
+capacity configuration are created beforehand by the frontend or backend.
 
 ### `POST /device/connect`
 
@@ -384,7 +380,7 @@ Request:
 }
 ```
 
-Respuesta:
+Response:
 
 ```json
 {
@@ -397,7 +393,7 @@ Respuesta:
 }
 ```
 
-Reglas:
+Rules:
 
 ```text
 deviceCode inexistente -> 404
@@ -405,10 +401,10 @@ testCode incorrecto     -> 400
 datos válidos           -> 200
 ```
 
-El test code esperado se configura con `DEVICE_TEST_CODE`; si no existe, se
-usa `SMART-FEEDER-TEST`.
+The expected test code is configured with `DEVICE_TEST_CODE`; if it is not set,
+`SMART-FEEDER-TEST` is used.
 
-## 8. Telemetría del dispositivo
+## 8. Device telemetry
 
 ### `POST /device/:feederId/telemetry`
 
@@ -426,15 +422,15 @@ Request:
 }
 ```
 
-El DTO valida `reportedAt` como fecha ISO, gramos no negativos y RSSI entre
-`-120` y `0`.
+The DTO validates `reportedAt` as an ISO date, non-negative grams, and RSSI
+between `-120` and `0`.
 
-`plateFoodGrams` y `hopperFoodPercent` son lecturas reales y opcionales.
-`plateFoodGrams` se expresa en gramos; `hopperFoodPercent` se expresa como
-entero de `0` a `100`. El ESP32 puede omitirlos si el sensor no está
-disponible. No debe enviar `0` para representar una lectura desconocida.
+`plateFoodGrams` and `hopperFoodPercent` are optional real readings.
+`plateFoodGrams` is expressed in grams; `hopperFoodPercent` is expressed as an
+integer from `0` to `100`. The ESP32 may omit them if the sensor is
+unavailable. It must not send `0` to represent an unknown reading.
 
-La escritura produce dos registros:
+The write produces two records:
 
 ```text
 DeviceTelemetry: historial de lecturas.
@@ -443,15 +439,15 @@ FeederStatus: snapshot usado por el dashboard.
 
 ### `POST /device/:feederId/telemetry-request`
 
-Encola una solicitud de telemetría inmediata para que el ESP32 la procese en su
-siguiente consulta de comandos. Se usa al abrir el frontend sin cambiar la
-frecuencia normal de telemetría.
+Queues an immediate telemetry request for the ESP32 to process during its next
+command poll. It is used when opening the frontend without changing the normal
+telemetry frequency.
 
-## 9. Comandos del dispositivo
+## 9. Device commands
 
 ### `GET /device/:feederId/commands/pending`
 
-Devuelve comandos con estado:
+Returns commands with these statuses:
 
 ```text
 queued | sent | processing
@@ -464,39 +460,38 @@ Request:
 ```json
 {
   "status": "completed",
-  "failureReason": "opcional si falló"
+  "failureReason": "optional when it fails"
 }
 ```
 
-Si `status` es `sent`, se guarda `sentAt`. Si es `completed`, `failed` o
-`expired`, se guarda `completedAt`.
+If `status` is `sent`, `sentAt` is stored. If it is `completed`, `failed`, or
+`expired`, `completedAt` is stored.
 
-El ESP32 debe llamar este endpoint tres veces como máximo durante una
-dispensación: `sent` al recibir el comando, `processing` al activar el motor y
-`completed` o `failed` al terminar. Si se desconecta antes de confirmar,
-debe consultar nuevamente los comandos pendientes antes de iniciar otra
-dispensación.
+The ESP32 should call this endpoint at most three times during dispensing:
+`sent` when receiving the command, `processing` when activating the motor, and
+`completed` or `failed` when finished. If it disconnects before confirming, it
+must query pending commands again before starting another dispensing operation.
 
-### Estados del comando
-
-```text
-queued      Creado y esperando al ESP32.
-sent        El ESP32 lo recibió.
-processing  El motor está ejecutándose.
-completed   Terminó correctamente o entregó una ración parcial.
-failed      El ESP32 reportó un error físico.
-expired     El backend agotó el tiempo de espera.
-```
-
-Timeouts por defecto:
+### Command states
 
 ```text
-queued      2 minutos sin ser recogido -> expired
-sent        1 minuto sin iniciar -> expired
-processing  5 minutos sin terminar -> failed
+queued      Created and waiting for the ESP32.
+sent        The ESP32 received it.
+processing  The motor is running.
+completed   Finished successfully or delivered a partial portion.
+failed      The ESP32 reported a hardware error.
+expired     The backend timeout was reached.
 ```
 
-Se pueden cambiar con variables de entorno en milisegundos:
+Default timeouts:
+
+```text
+queued      2 minutes without being picked up -> expired
+sent        1 minute without starting -> expired
+processing  5 minutes without finishing -> failed
+```
+
+These can be changed with environment variables in milliseconds:
 
 ```env
 COMMAND_QUEUED_TIMEOUT_MS=120000
@@ -507,8 +502,8 @@ DEVICE_OFFLINE_TIMEOUT_MS=300000
 
 ### `POST /device/:feederId/dispense-result`
 
-Este es el flujo recomendado para reportar el resultado completo de una
-dispensación. Es atómico e idempotente.
+This is the recommended flow for reporting the complete dispensing result. It
+is atomic and idempotent.
 
 Request exitoso:
 
@@ -524,7 +519,7 @@ Request exitoso:
 }
 ```
 
-Request con error físico:
+Request with a physical error:
 
 ```json
 {
@@ -539,7 +534,7 @@ Request con error físico:
 }
 ```
 
-Campos de `status`:
+`status` values:
 
 ```text
 completed  Completó la ración.
@@ -548,24 +543,24 @@ failed     Falló el motor, sensor u otro componente.
 skipped    No se ejecutó la ración.
 ```
 
-El endpoint valida que el comando pertenezca al comedero, actualiza el
-comando, actualiza o crea el evento, guarda gramos y tiempos, toma un snapshot
-de `FeederStatus` y crea una alerta para `failed`, `partial` o `skipped`.
-Repetir exactamente el mismo resultado devuelve el registro existente y no
-crea una segunda dispensación.
+The endpoint verifies that the command belongs to the feeder, updates the
+command, updates or creates the event, stores grams and timestamps, takes a
+`FeederStatus` snapshot, and creates an alert for `failed`, `partial`, or
+`skipped`. Repeating exactly the same result returns the existing record and
+does not create a second dispensing operation.
 
-Errores comunes:
+Common errors:
 
 ```text
 400  status, fechas o gramos inválidos.
 404  commandId inexistente o perteneciente a otro comedero.
 ```
 
-## 10. Eventos de alimentación
+## 10. Feeding events
 
 ### `GET /feeders/:feederId/feeding-events`
 
-Filtros opcionales:
+Optional filters:
 
 ```text
 ?from=2026-11-01T00:00:00.000Z
@@ -597,7 +592,7 @@ Request:
 
 ### `GET /feeders/:feederId/consumption/summary`
 
-Devuelve agregados por fecha:
+Returns aggregates by date:
 
 ```json
 {
@@ -615,11 +610,11 @@ Devuelve agregados por fecha:
 }
 ```
 
-## 11. Alertas
+## 11. Alerts
 
 ### `GET /feeders/:feederId/alerts`
 
-Filtro opcional:
+Optional filter:
 
 ```text
 ?read=false
@@ -644,13 +639,12 @@ Request:
 
 ### `DELETE /feeders/:feederId/feeding-events/history`
 
-Limpia los eventos, sesiones de mascota y comandos que ya terminaron para
-facilitar pruebas de debugging. Nunca elimina comandos pendientes o que estén
-en ejecución.
+Clears completed events, pet sessions, and commands to facilitate debugging
+tests. It never deletes pending or currently running commands.
 
 ### `GET /feeders/:feederId/alerts/unread-count`
 
-Respuesta:
+Response:
 
 ```json
 {
@@ -664,7 +658,7 @@ Respuesta:
 
 ### `PATCH /alerts/:alertId/read`
 
-## 12. Alimentos
+## 12. Food
 
 ### `GET /foods`
 
@@ -683,7 +677,7 @@ Request:
 {
   "brand": "Royal Canin",
   "name": "Indoor Adult",
-  "description": "Alimento seco para gatos adultos",
+  "description": "Dry food for adult cats",
   "species": "cat",
   "proteinPercent": 27,
   "fatPercent": 13,
@@ -691,43 +685,43 @@ Request:
   "moisturePercent": 8,
   "energyKcalPerKg": 3750,
   "imageUrl": "https://example.com/food.png",
-  "imageAlt": "Gato adulto junto a su alimento",
+  "imageAlt": "Adult cat next to its food",
   "sourceUrl": "https://www.royalcanin.com/mx/...",
   "nutritionBasis": "as_fed"
 }
 ```
 
-El catálogo inicial se carga automáticamente al iniciar el backend. Incluye
-fórmulas concretas de Royal Canin, NUPEC, Hill's Science Diet, Purina Cat Chow,
-Purina Dog Chow y PEDIGREE. Los valores corresponden a la presentación
-específica indicada, no a toda la marca.
+The initial catalog loads automatically when the backend starts. It includes
+specific formulas from Royal Canin, NUPEC, Hill's Science Diet, Purina Cat Chow,
+Purina Dog Chow, and PEDIGREE. The values correspond to the specific package
+listed, not to the entire brand.
 
-`nutritionBasis` puede ser:
+`nutritionBasis` may be:
 
 ```text
 as_fed       Porcentaje tal como se declara en el producto.
 dry_matter   Porcentaje convertido o publicado sobre materia seca.
 ```
 
-Los productos iniciales incluyen `sourceUrl` para consultar la ficha de
-referencia. `imageUrl` apunta a una imagen genérica representativa de perro o
-gato; no se presenta como fotografía oficial del empaque. En una aplicación
-comercial conviene reemplazarla por imágenes con licencia propia.
+The initial products include `sourceUrl` for consulting the reference sheet.
+`imageUrl` points to a generic representative image of a dog or cat; it is not
+presented as an official package photograph. In a commercial application,
+replace it with properly licensed images.
 
-`energyKcalPerKg` solo se llena cuando se encontró una cifra publicada para
-esa fórmula y presentación. Si la marca no publica energía metabolizable en la
-ficha consultada, el valor es `null`; nunca se usa `0` como sustituto de un
-dato desconocido. En el catálogo actual hay energía publicada para Royal
-Canin Indoor Adult, Hill's Adult Salmon, Purina Cat Chow húmedo, Royal Canin
-Medium Adult y Hill's Adult Chicken and Barley. NUPEC Felino Senior, Purina
-Dog Chow, PEDIGREE Adulto y NUPEC Adulto quedan sin kcal/kg verificable en la
-fuente consultada.
+`energyKcalPerKg` is filled only when a published figure was found for that
+formula and package. If the brand does not publish metabolizable energy in the
+consulted sheet, the value is `null`; `0` is never used as a substitute for
+unknown data. In the current catalog, published energy exists for Royal Canin
+Indoor Adult, Hill's Adult Salmon, wet Purina Cat Chow, Royal Canin Medium
+Adult, and Hill's Adult Chicken and Barley. NUPEC Felino Senior, Purina Dog
+Chow, PEDIGREE Adulto, and NUPEC Adulto have no verifiable kcal/kg value in
+the consulted source.
 
 ### `GET /foods/:foodId`
 
 ### `GET /feeders/:feederId/food`
 
-Devuelve el alimento seleccionado o `null`.
+Returns the selected food or `null`.
 
 ### `PATCH /feeders/:feederId/food`
 
@@ -739,13 +733,13 @@ Request:
 }
 ```
 
-La selección anterior del comedero se reemplaza.
+The feeder's previous selection is replaced.
 
-## 13. Cámara
+## 13. Camera
 
 ### `GET /feeders/:feederId/camera`
 
-Devuelve la configuración guardada. Si no existe configuración, devuelve `404`.
+Returns the saved configuration. If no configuration exists, returns `404`.
 
 ### `PATCH /feeders/:feederId/camera`
 
@@ -759,15 +753,15 @@ Request:
 }
 ```
 
-Tipos usuales:
+Common types:
 
 ```text
 hls | webrtc | mjpeg
 ```
 
-La API guarda la URL; no retransmite video desde NestJS.
+The API stores the URL; it does not relay video from NestJS.
 
-## 14. Orden recomendado de integración
+## 14. Recommended integration order
 
 ### Frontend
 
@@ -783,20 +777,20 @@ La API guarda la URL; no retransmite video desde NestJS.
 ### ESP32
 
 ```text
-1. El frontend crea el comedero con POST /feeders
-2. POST /device/connect al iniciar o reconectar
-3. POST /device/:feederId/telemetry inmediatamente después de conectar
-4. GET /device/:feederId/commands/pending cada 3 s
-5. PATCH /device/commands/:commandId con sent, processing y resultado
-6. POST /feeders/:feederId/feeding-events al concluir una dispensación
-7. POST /device/:feederId/telemetry después de la dispensación
+1. The frontend creates the feeder with POST /feeders
+2. POST /device/connect on startup or reconnection
+3. POST /device/:feederId/telemetry immediately after connecting
+4. GET /device/:feederId/commands/pending every 3 s
+5. PATCH /device/commands/:commandId with sent, processing, and the result
+6. POST /feeders/:feederId/feeding-events after dispensing completes
+7. POST /device/:feederId/telemetry after dispensing
 ```
 
-El ESP32 no llama `POST /feeders`, porque ese endpoint requiere definir el
-registro del comedero y su `deviceCode` antes de que el dispositivo pueda
-conectarse. Tampoco administra alimentos, mascotas, horarios o cámara.
+The ESP32 does not call `POST /feeders`, because that endpoint requires defining
+the feeder record and its `deviceCode` before the device can connect. It also
+does not manage food, pets, schedules, or the camera.
 
-### Flujo completo
+### Complete flow
 
 ```text
 Frontend crea/edita horario
@@ -807,20 +801,20 @@ Frontend crea/edita horario
   -> Backend actualiza comando, evento, estado y alertas
 ```
 
-## 15. Limitaciones conocidas
+## 15. Known limitations
 
-- El modo actual no autentica usuarios ni dispositivos.
-- El usuario demo se crea automáticamente.
-- El `testCode` es compartido.
-- No hay HTTPS obligatorio.
-- Un dispositivo se considera offline si no existe telemetría en los últimos
-  5 minutos. El estado se calcula al consultar el dashboard o el endpoint de
-  estado; no se necesita un proceso en segundo plano.
-- El dashboard todavía devuelve placeholders para alertas, alimento y
-  consumo reciente.
-- La ejecución automática de horarios todavía requiere un scheduler; guardar
-  un horario no hace que NestJS dispare un comando por sí solo.
-- El polling de comandos es responsabilidad del ESP32.
-- El scheduler expira comandos no confirmados y marca el evento como skipped o
+- The current mode does not authenticate users or devices.
+- The demo user is created automatically.
+- The `testCode` is shared.
+- HTTPS is not required.
+- A device is considered offline if no telemetry exists from the last
+  5 minutes. The status is calculated when querying the dashboard or status
+  endpoint; no background process is required.
+- The dashboard still returns placeholders for alerts, food, and recent
+  consumption.
+- Automatic schedule execution still requires a scheduler; saving a schedule
+  does not make NestJS issue a command by itself.
+- Command polling is the ESP32's responsibility.
+- The scheduler expires unconfirmed commands and marks the event as skipped or
   failed.
-- La cámara solo guarda metadata y URL.
+- The camera only stores metadata and a URL.

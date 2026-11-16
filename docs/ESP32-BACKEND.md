@@ -1,55 +1,55 @@
-# Documentos de integración ESP32 y API
+# ESP32 and API integration documents
 
-La documentación detallada se separó en dos guías:
+The detailed documentation is split into two guides:
 
-- [README-ESP32.md](./README-ESP32.md): qué debe hacer el ESP32, cuándo enviar
-  datos, cómo interpretar respuestas, ejecutar comandos y recuperarse de
-  errores.
-- [README-API.md](./README-API.md): endpoints, tipos, cuerpos, respuestas,
-  validaciones y limitaciones reales del backend.
+- [README-ESP32.md](./README-ESP32.md): what the ESP32 must do, when to send
+  data, how to interpret responses, execute commands, and recover from
+  errors.
+- [README-API.md](./README-API.md): endpoints, types, bodies, responses,
+  validations, and the backend's actual limitations.
 
-Este archivo se conserva como referencia histórica del primer prototipo.
+This file is retained as a historical reference for the first prototype.
 
-Este documento describe la integracion minima para una demo funcional. El
-ESP32 se conecta por Wi-Fi y se comunica con la API mediante HTTP y JSON.
+This document describes the minimal integration for a functional demo. The
+ESP32 connects over Wi-Fi and communicates with the API via HTTP and JSON.
 
-## Alcance actual
+## Current scope
 
-El proyecto esta en modo demo:
+The project is in demo mode:
 
-- No hay JWT, API keys, HMAC ni certificados.
-- El `deviceCode` identifica al comedero.
-- El `testCode` solo confirma que el ESP conoce el codigo de prueba.
-- Cualquier persona que conozca esos valores puede enviar datos.
-- No debe exponerse directamente a Internet en produccion.
+- There are no JWT, API keys, HMAC, or certificates.
+- `deviceCode` identifies the feeder.
+- `testCode` only confirms that the ESP knows the test code.
+- Anyone who knows those values can send data.
+- It must not be exposed directly to the Internet in production.
 
-El objetivo es conectar rapido el prototipo, no crear un canal seguro.
+The goal is to connect the prototype quickly, not to create a secure channel.
 
-## Requisitos
+## Requirements
 
-- ESP32 con Wi-Fi.
-- Firmware Arduino o PlatformIO.
-- URL accesible del backend.
-- Un comedero creado previamente desde la API.
+- ESP32 with Wi-Fi.
+- Arduino or PlatformIO firmware.
+- An accessible backend URL.
+- A feeder previously created through the API.
 
-En una red local, el backend debe escuchar en una direccion accesible por el
-ESP32. `localhost` dentro del ESP32 no significa la computadora donde corre
-NestJS. Usa la IP local de esa computadora:
+On a local network, the backend must listen on an address accessible to the
+ESP32. `localhost` inside the ESP32 does not mean the computer where NestJS
+runs. Use that computer's local IP:
 
 ```text
 http://192.168.1.50:3000/api/v1
 ```
 
-En el backend, NestJS debe arrancar escuchando en todas las interfaces si la
-red no lo alcanza:
+In the backend, NestJS must listen on all interfaces if the network cannot
+reach it:
 
 ```ts
 await app.listen(process.env.PORT ?? 3000, '0.0.0.0');
 ```
 
-## Paso 1: crear el comedero
+## Step 1: create the feeder
 
-Crear un registro una sola vez:
+Create a record once:
 
 ```http
 POST /api/v1/feeders
@@ -64,7 +64,7 @@ Content-Type: application/json
 }
 ```
 
-La respuesta contiene el `feederId`. El ESP32 debe guardar ambos valores:
+The response contains the `feederId`. The ESP32 must store both values:
 
 ```json
 {
@@ -75,18 +75,18 @@ La respuesta contiene el `feederId`. El ESP32 debe guardar ambos valores:
 }
 ```
 
-El `deviceCode` se graba en el firmware o en preferencias no volatiles del
-ESP32. El `feederId` se obtiene en el handshake y tambien conviene guardarlo.
+`deviceCode` is stored in the firmware or in the ESP32's non-volatile
+preferences. `feederId` is obtained during the handshake and should also be stored.
 
-## Paso 2: handshake de conexion
+## Step 2: connection handshake
 
-El codigo de prueba actual es:
+The current test code is:
 
 ```text
 SMART-FEEDER-TEST
 ```
 
-El ESP32 envia:
+The ESP32 sends:
 
 ```http
 POST /api/v1/device/connect
@@ -100,7 +100,7 @@ Content-Type: application/json
 }
 ```
 
-Respuesta exitosa:
+Successful response:
 
 ```json
 {
@@ -113,20 +113,19 @@ Respuesta exitosa:
 }
 ```
 
-El backend marca el comedero como `isOnline = true` y actualiza
-`lastSeenAt`. Si el codigo no existe devuelve `404`; si el codigo de prueba es
-incorrecto devuelve `400`.
+The backend marks the feeder as `isOnline = true` and updates
+`lastSeenAt`. If the code does not exist it returns `404`; if the test code is
+incorrect it returns `400`.
 
-Se puede cambiar el codigo sin modificar el codigo fuente:
+The code can be changed without modifying the source code:
 
 ```env
 DEVICE_TEST_CODE=MI-CODIGO-DE-DEMO
 ```
 
-## Paso 3: enviar telemetria
+## Step 3: send telemetry
 
-El ESP32 debe enviar telemetria cada 15-30 segundos y tambien despues de una
-dispensacion:
+The ESP32 must send telemetry every 15-30 seconds and also after dispensing:
 
 ```http
 POST /api/v1/device/:feederId/telemetry
@@ -145,27 +144,26 @@ Content-Type: application/json
 }
 ```
 
-La API guarda `DeviceTelemetry`, crea una foto en `FeederStatus` y actualiza:
+The API stores `DeviceTelemetry`, creates a snapshot in `FeederStatus`, and updates:
 
 ```text
 Feeder.isOnline = true
 Feeder.lastSeenAt
 ```
 
-Si el ESP32 deja de enviar telemetria, el backend considera offline el
-dispositivo cuando su ultima telemetria supera 5 minutos. El frontend debe
-aplicar la misma regla para evitar mostrar disponible una respuesta
-desactualizada.
+If the ESP32 stops sending telemetry, the backend considers the device offline
+when its last telemetry is more than 5 minutes old. The frontend must apply the
+same rule to avoid showing a stale response as available.
 
-## Paso 4: consultar comandos
+## Step 4: query commands
 
-El ESP32 consulta comandos pendientes mediante polling:
+The ESP32 polls for pending commands:
 
 ```http
 GET /api/v1/device/:feederId/commands/pending
 ```
 
-Respuesta:
+Response:
 
 ```json
 {
@@ -186,13 +184,13 @@ Respuesta:
 }
 ```
 
-El flujo recomendado del firmware es:
+The recommended firmware flow is:
 
-1. Consultar comandos cada 2-5 segundos.
-2. Cambiar el comando a `processing`.
-3. Activar el motor.
-4. Medir o estimar la cantidad dispensada.
-5. Cambiarlo a `completed` o `failed`.
+1. Query commands every 2-5 seconds.
+2. Change the command to `processing`.
+3. Activate the motor.
+4. Measure or estimate the dispensed amount.
+5. Change it to `completed` or `failed`.
 
 ```http
 PATCH /api/v1/device/commands/:commandId
@@ -205,7 +203,7 @@ Content-Type: application/json
 }
 ```
 
-Estados permitidos por el flujo:
+States allowed by the flow:
 
 ```text
 queued
@@ -216,9 +214,9 @@ failed
 expired
 ```
 
-## Paso 5: registrar eventos de alimentacion
+## Step 5: record feeding events
 
-Cuando termina una racion, el ESP32 o el backend puede registrar el evento:
+When a portion finishes, the ESP32 or the backend can record the event:
 
 ```http
 POST /api/v1/feeders/:feederId/feeding-events
@@ -237,14 +235,14 @@ Content-Type: application/json
 }
 ```
 
-En una primera version es aceptable que el ESP32 solo envie telemetria y que
-el backend cree los eventos cuando procesa comandos. Para mediciones reales,
-el firmware debe enviar el resultado despues de activar el motor.
+In an initial version, it is acceptable for the ESP32 to send only telemetry
+and for the backend to create events while processing commands. For real
+measurements, the firmware must send the result after activating the motor.
 
-## Ejemplo minimo para ESP32 Arduino
+## Minimal ESP32 Arduino example
 
-Instala las librerias `WiFi` y `HTTPClient`. El ejemplo omite el control del
-motor para concentrarse en la comunicacion:
+Install the `WiFi` and `HTTPClient` libraries. The example omits motor control
+to focus on communication:
 
 ```cpp
 #include <WiFi.h>
@@ -278,8 +276,8 @@ bool connectDevice() {
     return false;
   }
 
-  // Para una demo se puede extraer feederId con ArduinoJson.
-  // Guardalo en Preferences para no depender de una configuracion manual.
+  // For a demo, feederId can be extracted with ArduinoJson.
+  // Store it in Preferences to avoid depending on manual configuration.
   Serial.println("Handshake exitoso: " + response);
   return true;
 }
@@ -315,7 +313,7 @@ void loop() {
 }
 ```
 
-Para extraer `feederId` de la respuesta, agrega `ArduinoJson`:
+To extract `feederId` from the response, add `ArduinoJson`:
 
 ```cpp
 JsonDocument json;
@@ -323,52 +321,52 @@ deserializeJson(json, response);
 feederId = json["data"]["feederId"].as<String>();
 ```
 
-## Flujo completo
+## Complete flow
 
 ```text
-ESP32 arranca
-  -> conecta a Wi-Fi
-  -> POST /device/connect con deviceCode + testCode
-  -> recibe feederId
-  -> envia telemetria cada 15-30 s
-  -> consulta /commands/pending
-  -> ejecuta dispense
-  -> confirma el comando
-  -> envia evento y nueva telemetria
+ESP32 starts
+  -> connects to Wi-Fi
+  -> POST /device/connect with deviceCode + testCode
+  -> receives feederId
+  -> sends telemetry every 15-30 s
+  -> polls /commands/pending
+  -> executes dispense
+  -> confirms the command
+  -> sends the event and new telemetry
 ```
 
-## Diagnostico rapido
+## Quick troubleshooting
 
-### El ESP32 recibe connection refused
+### ESP32 receives connection refused
 
-- No uses `localhost`.
-- Usa la IP LAN de la computadora.
-- Verifica que el puerto 3000 este abierto en el firewall.
-- Arranca NestJS escuchando en `0.0.0.0`.
+- Do not use `localhost`.
+- Use the computer's LAN IP address.
+- Verify that port 3000 is open in the firewall.
+- Start NestJS listening on `0.0.0.0`.
 
-### El handshake devuelve 404
+### The handshake returns 404
 
-- El `deviceCode` no coincide exactamente.
-- Primero crea el comedero con `POST /api/v1/feeders`.
+- `deviceCode` does not match exactly.
+- First create the feeder with `POST /api/v1/feeders`.
 
-### La telemetria devuelve 404
+### Telemetry returns 404
 
-- El `feederId` no fue extraido correctamente.
-- Guarda el `feederId` recibido en el handshake.
+- `feederId` was not extracted correctly.
+- Store the `feederId` received during the handshake.
 
-### El frontend muestra offline
+### The frontend shows offline
 
-- Revisa `lastSeenAt`.
-- Envia telemetria periodicamente.
-- No dependas solo del handshake; el handshake no reemplaza al heartbeat.
+- Check `lastSeenAt`.
+- Send telemetry periodically.
+- Do not rely only on the handshake; it does not replace the heartbeat.
 
-## Limitaciones aceptadas por tiempo
+## Time-accepted limitations
 
-- No hay autenticacion ni cifrado de dispositivo.
-- No hay MQTT ni WebSocket; se usa polling HTTP.
-- No se verifica que un ESP32 sea el propietario del `deviceCode`.
-- No se detecta offline automaticamente en el backend.
-- El codigo de prueba es compartido.
+- There is no device authentication or encryption.
+- There is no MQTT or WebSocket; HTTP polling is used.
+- The backend does not verify that an ESP32 owns the `deviceCode`.
+- The backend does not automatically detect offline devices.
+- The test code is shared.
 
-Para produccion, el primer cambio debe ser sustituir el `testCode` compartido
-por una clave individual por dispositivo y HTTPS.
+For production, the first change should be to replace the shared `testCode`
+with an individual device key and HTTPS.
