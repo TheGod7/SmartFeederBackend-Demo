@@ -2,6 +2,7 @@ import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/commo
 import { apiData, apiList } from '../common/api-response.js';
 import { CreateFeederDto } from './dto/create-feeder.dto.js';
 import { CreateScheduleDto } from './dto/create-schedule.dto.js';
+import { CalibrationWeightDto } from './dto/calibration-weight.dto.js';
 import { DispenseDto } from './dto/dispense.dto.js';
 import { UpdateScheduleDto } from './dto/update-schedule.dto.js';
 import { FeedersService } from './feeders.service.js';
@@ -16,6 +17,11 @@ export class FeedersController {
   @Get(':feederId/status') status(@Param('feederId') id: string) { return this.service.status(id).then(apiData); }
   @Get(':feederId/schedules') schedules(@Param('feederId') id: string) { return this.service.schedulesFor(id).then(apiList); }
   @Post(':feederId/schedules') schedule(@Param('feederId') id: string, @Body() dto: CreateScheduleDto) { return this.service.createSchedule(id, dto).then(apiData); }
+  @Get(':feederId/calibration') calibration(@Param('feederId') id: string) { return this.service.calibrationFor(id).then(apiList); }
+  @Post(':feederId/calibration/tare') tare(@Param('feederId') id: string) { return this.service.createCalibration(id, 'tare').then(apiData); }
+  @Post(':feederId/calibration/weight') weight(@Param('feederId') id: string, @Body() dto: CalibrationWeightDto) {
+    return this.service.createCalibration(id, 'weight', dto.knownGrams).then(apiData);
+  }
   @Post(':feederId/actions/dispense') dispense(@Param('feederId') id: string, @Body() dto: DispenseDto) { return this.service.dispense(id, dto).then(apiData); }
 }
 

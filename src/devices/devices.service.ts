@@ -6,6 +6,7 @@ import { ConnectDeviceDto } from './dto/connect-device.dto.js';
 import { TelemetryDto } from './dto/telemetry.dto.js';
 import { DispenseResultDto } from './dto/dispense-result.dto.js';
 import { AlertsService } from '../alerts/alerts.service.js';
+import { CalibrationResultDto } from './dto/calibration-result.dto.js';
 
 @Injectable()
 export class DevicesService {
@@ -54,11 +55,7 @@ export class DevicesService {
       where: { feederId },
       orderBy: { createdAt: 'desc' },
     });
-    const effectivePlateFoodGrams =
-      dto.petEvent === 'detected' && latestStatus?.plateFoodGrams !== null &&
-      latestStatus?.plateFoodGrams !== undefined
-        ? latestStatus.plateFoodGrams
-        : dto.plateFoodGrams;
+    const effectivePlateFoodGrams = dto.plateFoodGrams ?? latestStatus?.plateFoodGrams;
     const telemetry = await this.prisma.deviceTelemetry.create({
       data: { feederId, ...dto, plateFoodGrams: effectivePlateFoodGrams, reportedAt },
     });
@@ -125,13 +122,31 @@ export class DevicesService {
         orderBy: { detectedAt: 'desc' },
       });
       if (activeSession) {
-        const consumedGrams = activeSession.foodBeforeGrams !== null && effectivePlateFoodGrams !== undefined
+        const consumedGrams = activeSession.foodBeforeGrams !== null &&
+          effectivePlateFoodGrams !== null &&
+          effectivePlateFoodGrams !== undefined
           ? Math.max(0, activeSession.foodBeforeGrams - effectivePlateFoodGrams)
           : null;
         const completedSession = await this.prisma.$transaction(async (transaction) => {
+          const feedingEventId = activeSession.feedingEventId ??
+            (await transaction.feedingEvent.create({
+              data: {
+                feederId,
+                status: consumedGrams === null || consumedGrams === 0
+                  ? 'skipped'
+                  : activeSession.expectedGrams !== null && consumedGrams < activeSession.expectedGrams
+                    ? 'partial'
+                    : 'completed',
+                dispensedGrams: activeSession.expectedGrams,
+                consumedGrams,
+                remainingGrams: effectivePlateFoodGrams,
+                completedAt: reportedAt,
+              },
+            })).id;
           const session = await transaction.petPresenceSession.update({
             where: { id: activeSession.id },
             data: {
+              feedingEventId,
               leftAt: reportedAt,
               foodAfterGrams: effectivePlateFoodGrams,
               consumedGrams,
@@ -144,6 +159,12 @@ export class DevicesService {
               data: {
                 consumedGrams,
                 remainingGrams: effectivePlateFoodGrams,
+                status: consumedGrams === null || consumedGrams === 0
+                  ? 'skipped'
+                  : activeSession.expectedGrams !== null && consumedGrams < activeSession.expectedGrams
+                    ? 'partial'
+                    : 'completed',
+                completedAt: reportedAt,
               },
             });
           }
@@ -194,6 +215,7 @@ export class DevicesService {
     if (
       dto.petEvent === undefined &&
       dto.petPresent !== true &&
+      effectivePlateFoodGrams !== null &&
       effectivePlateFoodGrams !== undefined &&
       effectivePlateFoodGrams > DevicesService.PLATE_FOOD_THRESHOLD_GRAMS
     ) {
@@ -310,6 +332,35 @@ export class DevicesService {
       });
     }
     return command;
+  }
+  async calibrationResult(feederId: string, dto: CalibrationResultDto) {
+    await this.feeder(feederId);
+    const now = new Date();
+    return this.prisma.$transaction(async (transaction) => {
+      const calibration = await transaction.calibration.findFirst({
+        where: { commandId: dto.commandId, feederId },
+      });
+      if (!calibration) throw new NotFoundException('Calibración no encontrada para este dispositivo');
+      await transaction.deviceCommand.update({
+        where: { id: dto.commandId },
+        data: {
+          status: dto.status === 'completed' ? 'completed' : 'failed',
+          failureReason: dto.failureReason,
+          completedAt: now,
+        },
+      });
+      return transaction.calibration.update({
+        where: { id: calibration.id },
+        data: {
+          status: dto.status,
+          calibrationFactor: dto.calibrationFactor,
+          tareOffset: dto.tareOffset,
+          failureReason: dto.failureReason,
+          completedAt: now,
+        },
+        include: { command: true },
+      });
+    });
   }
   async dispenseResult(feederId: string, dto: DispenseResultDto) {
     await this.feeder(feederId);

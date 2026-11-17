@@ -57,9 +57,10 @@ export class FeedingEventsService {
   }
 
   async summary(feederId: string, from?: string, to?: string) {
+    const feeder = await this.prisma.feeder.findUniqueOrThrow({ where: { id: feederId }, select: { timezone: true } });
     const events = await this.list(feederId, from, to);
     return events.reduce<Record<string, { date: string; dispensedGrams: number; consumedGrams: number; feedingCount: number; completedCount: number; partialCount: number; skippedCount: number }>>((result, event) => {
-      const date = event.createdAt.toISOString().slice(0, 10);
+      const date = new Intl.DateTimeFormat('en-CA', { timeZone: feeder.timezone }).format(event.createdAt);
       const item = result[date] ?? { date, dispensedGrams: 0, consumedGrams: 0, feedingCount: 0, completedCount: 0, partialCount: 0, skippedCount: 0 };
       item.dispensedGrams += event.dispensedGrams ?? 0;
       item.consumedGrams += event.consumedGrams ?? 0;

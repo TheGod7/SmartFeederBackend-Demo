@@ -65,6 +65,7 @@ model Feeder {
   alerts       Alert[]
   foods        FeederFood[]
   commands     DeviceCommand[]
+  calibrations Calibration[]
   telemetry    DeviceTelemetry[]
   petPresenceSessions PetPresenceSession[]
   camera       Camera?
@@ -197,8 +198,28 @@ model DeviceCommand {
   completedAt   DateTime?
   feeder        Feeder   @relation(fields: [feederId], references: [id], onDelete: Cascade)
   feedingEvent  FeedingEvent? @relation(fields: [feedingEventId], references: [id], onDelete: SetNull)
+  calibration   Calibration?
 
   @@index([feederId, status, createdAt])
+}
+
+model Calibration {
+  id               String        @id @default(uuid())
+  feederId         String
+  commandId        String        @unique
+  kind             String
+  knownGrams       Int?
+  calibrationFactor Float?
+  tareOffset       Float?
+  status           String        @default("queued")
+  failureReason    String?
+  createdAt        DateTime      @default(now())
+  completedAt      DateTime?
+  feeder           Feeder        @relation(fields: [feederId], references: [id], onDelete: Cascade)
+  command          DeviceCommand @relation(fields: [commandId], references: [id], onDelete: Cascade)
+
+  @@index([feederId, createdAt])
+  @@index([feederId, status])
 }
 
 model DeviceTelemetry {

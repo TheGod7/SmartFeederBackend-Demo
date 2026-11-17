@@ -4,6 +4,7 @@ import { CommandStatusDto } from './dto/command-status.dto.js';
 import { ConnectDeviceDto } from './dto/connect-device.dto.js';
 import { TelemetryDto } from './dto/telemetry.dto.js';
 import { DispenseResultDto } from './dto/dispense-result.dto.js';
+import { CalibrationResultDto } from './dto/calibration-result.dto.js';
 import { DevicesService } from './devices.service.js';
 
 @Controller('device')
@@ -15,4 +16,7 @@ export class DevicesController {
   @Get(':feederId/commands/pending') pending(@Param('feederId') id: string) { return this.service.pending(id).then(apiList); }
   @Patch('commands/:commandId') status(@Param('commandId') id: string, @Body() dto: CommandStatusDto) { return this.service.commandStatus(id, dto).then(apiData); }
   @Post(':feederId/dispense-result') result(@Param('feederId') id: string, @Body() dto: DispenseResultDto) { return this.service.dispenseResult(id, dto).then(apiData); }
+  @Post(':feederId/calibration-result') calibrationResult(@Param('feederId') id: string, @Body() dto: CalibrationResultDto) {
+    return this.service.calibrationResult(id, dto).then(apiData);
+  }
 }

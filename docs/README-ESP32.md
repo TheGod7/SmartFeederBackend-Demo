@@ -64,7 +64,7 @@ does not calculate or trigger schedules; it only retrieves and executes commands
 ```cpp
 const char* WIFI_SSID = "MI_WIFI";
 const char* WIFI_PASSWORD = "MI_PASSWORD";
-const char* API_BASE = "http://192.168.1.50:3000/api/v1";
+const char* API_BASE = "https://b8d4-2806-104e-2d-37c6-697e-1481-5554-61a3.ngrok-free.app/api/v1";
 const char* DEVICE_CODE = "SF-ESP32-MILO-001";
 const char* TEST_CODE = "SMART-FEEDER-TEST";
 ```
@@ -76,13 +76,13 @@ It must be an address reachable by the ESP32. Do not use `localhost`.
 Correct on a local network:
 
 ```text
-http://192.168.1.50:3000/api/v1
+https://b8d4-2806-104e-2d-37c6-697e-1481-5554-61a3.ngrok-free.app/api/v1
 ```
 
 Incorrect:
 
 ```text
-http://localhost:3000/api/v1
+https://b8d4-2806-104e-2d-37c6-697e-1481-5554-61a3.ngrok-free.app/api/v1
 ```
 
 NestJS must listen on `0.0.0.0`, and the firewall must allow port 3000.
@@ -393,6 +393,45 @@ expired      The device did not execute it in time.
 Commands in `processing` are not delivered to the ESP32 again. This prevents a
 restart during dispensing from repeating the movement; the backend scheduler
 marks a `processing` command that exceeds its timeout as failed.
+
+### Calibration commands
+
+The web frontend can queue HX711 calibration through:
+
+```http
+POST /api/v1/feeders/:feederId/calibration/tare
+POST /api/v1/feeders/:feederId/calibration/weight
+Content-Type: application/json
+```
+
+For a known reference weight, send:
+
+```json
+{ "knownGrams": 100 }
+```
+
+These requests create `calibration_tare` and `calibration_weight` commands.
+The ESP32 should execute them from the normal pending-command poll using the
+equivalent local operations `hx711 tare` and `hx711 calibrate <grams>`. It must
+then report:
+
+```http
+POST /api/v1/device/:feederId/calibration-result
+Content-Type: application/json
+```
+
+```json
+{
+  "commandId": "command-uuid",
+  "status": "completed",
+  "calibrationFactor": 123.45,
+  "tareOffset": 67890
+}
+```
+
+Use `status: "failed"` and `failureReason` when the calibration cannot be
+completed. The backend stores each attempt and prevents overlapping
+calibrations for the same feeder.
 
 ## 6. Atomic dispensing result
 

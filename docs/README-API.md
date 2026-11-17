@@ -14,7 +14,7 @@ http://HOST:3000/api/v1
 Example:
 
 ```text
-http://192.168.1.50:3000/api/v1
+https://b8d4-2806-104e-2d-37c6-697e-1481-5554-61a3.ngrok-free.app/api/v1
 ```
 
 Methods used:
@@ -442,6 +442,28 @@ FeederStatus: snapshot usado por el dashboard.
 Queues an immediate telemetry request for the ESP32 to process during its next
 command poll. It is used when opening the frontend without changing the normal
 telemetry frequency.
+
+### Calibration endpoints
+
+The frontend can queue HX711 calibration commands:
+
+```http
+GET  /feeders/:feederId/calibration
+POST /feeders/:feederId/calibration/tare
+POST /feeders/:feederId/calibration/weight
+```
+
+The weight endpoint receives `{ "knownGrams": 100 }`. The backend creates a
+`calibration_tare` or `calibration_weight` command. The ESP32 executes it during
+the normal command poll and reports the result through:
+
+```http
+POST /device/:feederId/calibration-result
+```
+
+The result includes `commandId`, `status` (`completed` or `failed`) and, when
+available, `calibrationFactor` and `tareOffset`. Only one calibration may be
+active per feeder.
 
 ## 9. Device commands
 

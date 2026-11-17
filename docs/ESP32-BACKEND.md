@@ -37,7 +37,7 @@ ESP32. `localhost` inside the ESP32 does not mean the computer where NestJS
 runs. Use that computer's local IP:
 
 ```text
-http://192.168.1.50:3000/api/v1
+https://b8d4-2806-104e-2d-37c6-697e-1481-5554-61a3.ngrok-free.app/api/v1
 ```
 
 In the backend, NestJS must listen on all interfaces if the network cannot
@@ -250,7 +250,7 @@ to focus on communication:
 
 const char* WIFI_SSID = "MI_WIFI";
 const char* WIFI_PASSWORD = "MI_PASSWORD";
-const char* API_BASE = "http://192.168.1.50:3000/api/v1";
+const char* API_BASE = "https://b8d4-2806-104e-2d-37c6-697e-1481-5554-61a3.ngrok-free.app/api/v1";
 const char* DEVICE_CODE = "SF-ESP32-MILO-001";
 const char* TEST_CODE = "SMART-FEEDER-TEST";
 

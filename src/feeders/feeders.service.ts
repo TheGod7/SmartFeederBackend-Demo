@@ -38,6 +38,32 @@ export class FeedersService {
     return { ...schedule, daysOfWeek: dto.daysOfWeek };
   }
 
+  async calibrationFor(feederId: string) {
+    await this.findOne(feederId);
+    return this.prisma.calibration.findMany({ where: { feederId }, orderBy: { createdAt: 'desc' } });
+  }
+
+  async createCalibration(feederId: string, kind: 'tare' | 'weight', knownGrams?: number) {
+    await this.findOne(feederId);
+    const active = await this.prisma.calibration.findFirst({
+      where: { feederId, status: { in: ['queued', 'sent', 'processing'] } },
+    });
+    if (active) throw new BadRequestException('Ya existe una calibración en curso');
+    return this.prisma.$transaction(async (transaction) => {
+      const command = await transaction.deviceCommand.create({
+        data: {
+          feederId,
+          type: kind === 'tare' ? 'calibration_tare' : 'calibration_weight',
+          payload: JSON.stringify({ kind, ...(knownGrams === undefined ? {} : { knownGrams }) }),
+        },
+      });
+      return transaction.calibration.create({
+        data: { feederId, commandId: command.id, kind, knownGrams },
+        include: { command: true },
+      });
+    });
+  }
+
   async findSchedule(id: string) {
     const schedule = await this.prisma.schedule.findFirst({ where: { id, feeder: { userId: DEMO_USER_ID } } });
     if (!schedule) throw new NotFoundException('Horario no encontrado');
